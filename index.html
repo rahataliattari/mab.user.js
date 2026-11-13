@@ -1,76 +1,64 @@
-<!doctype html>
+
+<!DOCTYPE html>
 <html lang="ur" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#087443">
-  <title>MAB UserScript | Tampermonkey</title>
-  <style>
-    :root { color-scheme: light; --green:#087443; --dark:#123b2a; --gold:#c69a36; --muted:#64748b; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; min-height: 100vh; padding: 28px 16px;
-      display: grid; place-items: center;
-      background: linear-gradient(145deg,#edf8f1,#f8fafc 55%,#fff8e8);
-      font-family: Tahoma, Arial, sans-serif; color: var(--dark);
-    }
-    main {
-      width: min(100%, 620px); background: #fff; border: 1px solid #e2e8f0;
-      border-radius: 22px; padding: 30px; text-align: center;
-      box-shadow: 0 18px 55px rgba(15, 60, 40, .10);
-    }
-    .mark {
-      width: 68px; height: 68px; margin: 0 auto 16px; border-radius: 20px;
-      display: grid; place-items: center; background: #e7f5ec; color: var(--green);
-      font-size: 30px; font-weight: 800;
-    }
-    h1 { margin: 0 0 8px; font-size: clamp(25px,5vw,34px); color: var(--green); }
-    .sub { color: var(--muted); line-height: 1.9; margin: 0 auto 22px; }
-    .version {
-      display: inline-block; padding: 7px 14px; border-radius: 999px;
-      background: #edf8f1; color: var(--green); font-size: 14px; font-weight: 700;
-      margin-bottom: 22px;
-    }
-    .button {
-      display: block; width: 100%; padding: 15px 18px; margin: 12px 0;
-      border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 17px;
-      transition: transform .15s ease, opacity .15s ease;
-    }
-    .button:hover { transform: translateY(-1px); opacity: .93; }
-    .primary { background: var(--green); color: #fff; }
-    .secondary { border: 1px solid #dbe5df; color: var(--dark); background: #fff; }
-    .note {
-      margin-top: 22px; padding: 14px; border-radius: 12px; background: #fff8e8;
-      color: #73551a; line-height: 1.9; font-size: 14px; text-align: right;
-    }
-    footer { margin-top: 22px; color: #94a3b8; font-size: 12px; direction:ltr; }
-    code { direction:ltr; unicode-bidi:embed; overflow-wrap:anywhere; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MAB UserScript</title>
+<style>
+*{box-sizing:border-box}
+body{
+margin:0;padding:30px 15px;min-height:100vh;
+display:grid;place-items:center;
+background:linear-gradient(135deg,#e8f5ed,#fff);
+font-family:Tahoma,Arial,sans-serif;color:#16452f
+}
+main{
+width:100%;max-width:600px;background:white;
+padding:30px;border-radius:20px;text-align:center;
+box-shadow:0 10px 40px #0001
+}
+h1{color:#087443}
+p{line-height:2;color:#64748b}
+.badge{
+display:inline-block;background:#e8f5ed;color:#087443;
+padding:9px 18px;border-radius:30px;margin:12px
+}
+a{
+display:block;text-decoration:none;padding:16px;
+margin:14px 0;border-radius:12px;font-weight:bold
+}
+.install{background:#087443;color:white}
+.github{border:1px solid #ddd;color:#16452f}
+.info{
+background:#fff8e8;padding:15px;border-radius:12px;
+text-align:right;line-height:2;font-size:14px
+}
+</style>
 </head>
 <body>
-  <main>
-    <div class="mark">M</div>
-    <h1>MAB UserScript</h1>
-    <p class="sub">Collection Form — Auto Print &amp; Return to Box Open</p>
-    <div class="version">موجودہ اسکرپٹ ورژن: v10.38</div>
+<main>
+<h1>🌸 MAB UserScript 🌸</h1>
+<p>Collection Form - Auto Print & Return to Box Open</p>
+<div class="badge">Tampermonkey + Violentmonkey</div>
 
-    <a class="button primary"
-       href="https://raw.githubusercontent.com/rahataliattari/mab.user.js/main/v10_36.user.js">
-      Tampermonkey میں اسکرپٹ انسٹال کریں
-    </a>
-    <a class="button secondary"
-       href="https://github.com/rahataliattari/mab.user.js/blob/main/v10_36.user.js">
-      GitHub پر اصل فائل دیکھیں
-    </a>
+<a class="install"
+href="https://raw.githubusercontent.com/rahataliattari/mab.user.js/main/mab.user.js">
+اسکرپٹ انسٹال / اپڈیٹ کریں
+</a>
 
-    <div class="note">
-      <strong>انسٹال کرنے کا طریقہ:</strong><br>
-      1۔ پہلے براؤزر میں Tampermonkey ایکسٹینشن انسٹال اور فعال کریں۔<br>
-      2۔ اوپر والے سبز بٹن پر کلک کریں۔<br>
-      3۔ Tampermonkey کے صفحے پر Install منتخب کریں۔<br>
-      4۔ MAB ویب سائٹ دوبارہ کھولیں یا ریفریش کریں۔
-    </div>
-    <footer>Unofficial user script page · Hosted on GitHub Pages</footer>
-  </main>
+<a class="github"
+href="https://github.com/rahataliattari/mab.user.js">
+GitHub Repository
+</a>
+
+<div class="info">
+<strong>انسٹال کرنے کا طریقہ:</strong><br>
+1۔ Tampermonkey یا Violentmonkey فعال کریں۔<br>
+2۔ سبز بٹن پر کلک کریں۔<br>
+3۔ Install یا Confirm منتخب کریں۔<br>
+4۔ MAB ویب سائٹ ریفریش کریں۔
+</div>
+</main>
 </body>
 </html>
