@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name Collection Form - Auto Print & Return to Box Open v10.39
+// @name Ur Eng - Auto Print & Return to Box Open v10.39
 // @namespace mab.dibaadm.v10
 // @version 10.39
 // @match *://*.dibaadm.com/*
