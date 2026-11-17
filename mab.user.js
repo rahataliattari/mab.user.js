@@ -1,13 +1,25 @@
 // ==UserScript==
-// @name Ur Eng - Auto Print & Return to Box Open v10.39
+// @name Ur Eng - Auto Print & Return to Box Open v10.50
 // @namespace mab.dibaadm.v10
-// @version 10.39
+// @version 10.50
 // @match *://*.dibaadm.com/*
 // @grant none
 // @run-at document-idle
 // ==/UserScript==
 
 (function () {
+  // =============================================================
+  // سیٹنگز (CFG) — v10.48
+  // cardOnFirstPage  : true  = Cross Check کارڈ کولیکشن کے پہلے صفحے (Box Open فارم) پر ہی کھلے گا
+  // cardOnConfirmPage: false = دوسرے (Confirmation) صفحے پر کارڈ دوبارہ نہیں کھلے گا
+  // autoProcess      : false = کارڈ دیکھ کر آپ کارڈ کے "Process" بٹن سے آگے بڑھیں گے؛ true = پرانی طرح خود بخود Process
+  // =============================================================
+  const CFG = {
+    cardOnFirstPage: false, // v10.46: سب کچھ Box Code پینل میں ہے، الگ کارڈ نہیں کھلتا؛ پینل کا آخری بٹن سیدھا Process کرتا ہے
+    cardOnConfirmPage: false,
+    autoProcess: false,
+  };
+
   const FIXED = [
     ["Slip Type", "E-Slip"],
     ["Receipt Type", "E-Slip"],
@@ -272,7 +284,9 @@
     }
   }
 
+  let lastBoxMiss = ""; // "notfound" = سسٹم پر کوڈ نہیں؛ "timeout" = جواب نہیں آیا
   async function setBoxCode(code) {
+    lastBoxMiss = "";
     const $ = window.jQuery;
     const sel = afterLabel("Box Code", "select");
     let opened = false;
@@ -303,7 +317,32 @@
     );
     const tTyped = Date.now(),
       nc = norm(code);
+    let sawSearching = false;
     for (let i = 0; i < 600; i++) {
+      // select2 کا پیغام: Searching… (تلاش جاری) یا No results found (سسٹم پر کوڈ نہیں)
+      const msgs = [
+        ...document.querySelectorAll(
+          ".select2-results__message, .select2-results__option.loading-results"
+        ),
+      ];
+      if (
+        msgs.some(
+          (m) =>
+            /searching/i.test(m.textContent) ||
+            m.classList.contains("loading-results")
+        )
+      )
+        sawSearching = true;
+      else if (
+        msgs.some((m) => /no results|not found|no match/i.test(m.textContent)) &&
+        (sawSearching || Date.now() - tTyped > 900)
+      ) {
+        lastBoxMiss = "notfound";
+        try {
+          if (sel && $ && $.fn && $.fn.select2) $(sel).select2("close");
+        } catch (e) {}
+        return false;
+      }
       // نتیجہ آتے ہی فوراً (ہر 30ms پر چیک، زیادہ سے زیادہ ~18s)
       const opts = [
         ...document.querySelectorAll(".select2-results__option"),
@@ -325,6 +364,7 @@
       }
       await sleep(30);
     }
+    lastBoxMiss = "timeout";
     return false;
   }
 
@@ -357,7 +397,7 @@
     const opt = [...el.options].find(
       (o) => o.value !== "" && norm(o.text).includes(want)
     );
-    if (!opt) return false; // آپشن ابھی سرور سے نہیں آیا
+    if (!opt) return false; // آپشن ابھی سسٹم سے نہیں آیا
     el.selectedIndex = opt.index;
     fire(el);
     return false; // اگلی چیک پر تصدیق ہوگی
@@ -404,7 +444,7 @@
     fire(el);
   }
 
-  // Fill دباتے ہی (ڈائیلاگ کھلتے ہی): سرور سے آزاد خانے
+  // Fill دباتے ہی (ڈائیلاگ کھلتے ہی): سسٹم سے آزاد خانے
   async function presetTask() {
     const t0 = Date.now();
     ensureDate();
@@ -564,6 +604,7 @@
     return st;
   }
 
+  // صفحے کا اصل Process / محفوظ کریں بٹن (ہمارے اپنے کارڈ/ڈائیلاگ/کیلکولیٹر کے بٹن شامل نہیں)
   async function clickProcessButton() {
     for (let i = 0; i < 300; i++) {
       const btns = [
@@ -572,6 +613,8 @@
         ),
       ];
       const procBtn = btns.find((b) => {
+        if (b.closest("#mab-view-card, #mab-dlg-overlay, #mab-calc-root"))
+          return false;
         const txt = norm(b.innerText || b.textContent || b.value || "");
         return (
           (b.offsetWidth > 0 || b.offsetHeight > 0) && anyIn(txt, PROCESS_WORDS)
@@ -645,108 +688,7 @@
 
   function numToUrdu(n) {
     if (n === 0) return "صفر";
-    const u = [
-      "",
-      "ایک",
-      "دو",
-      "تین",
-      "چار",
-      "پانچ",
-      "چھ",
-      "سات",
-      "آٹھ",
-      "نو",
-      "دس",
-      "گیارہ",
-      "بارہ",
-      "تیرہ",
-      "چودہ",
-      "پندرہ",
-      "سولہ",
-      "سترہ",
-      "اٹھارہ",
-      "انیس",
-      "بیس",
-      "اکیس",
-      "بائیس",
-      "تیئیس",
-      "چوبیس",
-      "پچیس",
-      "چھبیس",
-      "ستائیس",
-      "اٹھائیس",
-      "انتیس",
-      "تیس",
-      "اکتیس",
-      "بتیس",
-      "تینتیس",
-      "چونتیس",
-      "پینتیس",
-      "چھتیس",
-      "سینتیس",
-      "اڑتیس",
-      "انتالیس",
-      "چالیس",
-      "اکتالیس",
-      "بیالیس",
-      "تینتالیس",
-      "چوالیس",
-      "پینتالیس",
-      "چھیالیس",
-      "سینتالیس",
-      "اڑتالیس",
-      "انچاس",
-      "پچاس",
-      "اکیاون",
-      "باون",
-      "تریپن",
-      "چون",
-      "پچپن",
-      "چھپن",
-      "ستاون",
-      "اٹھاون",
-      "انسٹھ",
-      "ساٹھ",
-      "اکسٹھ",
-      "باسٹھ",
-      "تریسٹھ",
-      "چونسٹھ",
-      "پینسٹھ",
-      "چھیاسٹھ",
-      "سڑسٹھ",
-      "اڑسٹھ",
-      "انہتر",
-      "ستر",
-      "اکہتر",
-      "بہتر",
-      "تہتر",
-      "چوہتر",
-      "پچھتر",
-      "چھہتر",
-      "ستتر",
-      "اٹھہتر",
-      "اناسی",
-      "اسی",
-      "اکیاسی",
-      "بیاسی",
-      "تراسی",
-      "چوراسی",
-      "پچاسی",
-      "چھیاسی",
-      "ستاسی",
-      "اٹھاسی",
-      "نواسی",
-      "نوے",
-      "اکانوے",
-      "بانوے",
-      "ترانوے",
-      "چورانوے",
-      "پچانوے",
-      "چھیانوے",
-      "ستانوے",
-      "اٹھانوے",
-      "ننانوے",
-    ];
+    const u = ["", "ایک", "دو", "تین", "چار", "پانچ", "چھ", "سات", "آٹھ", "نو", "دس", "گیارہ", "بارہ", "تیرہ", "چودہ", "پندرہ", "سولہ", "سترہ", "اٹھارہ", "انیس", "بیس", "اکیس", "بائیس", "تیئیس", "چوبیس", "پچیس", "چھبیس", "ستائیس", "اٹھائیس", "انتیس", "تیس", "اکتیس", "بتیس", "تینتیس", "چونتیس", "پینتیس", "چھتیس", "سینتیس", "اڑتیس", "انتالیس", "چالیس", "اکتالیس", "بیالیس", "تینتالیس", "چوالیس", "پینتالیس", "چھیالیس", "سینتالیس", "اڑتالیس", "انچاس", "پچاس", "اکیاون", "باون", "تریپن", "چون", "پچپن", "چھپن", "ستاون", "اٹھاون", "انسٹھ", "ساٹھ", "اکسٹھ", "باسٹھ", "تریسٹھ", "چونسٹھ", "پینسٹھ", "چھیاسٹھ", "سڑسٹھ", "اڑسٹھ", "انہتر", "ستر", "اکہتر", "بہتر", "تہتر", "چوہتر", "پچھتر", "چھہتر", "ستتر", "اٹھہتر", "اناسی", "اسی", "اکیاسی", "بیاسی", "تراسی", "چوراسی", "پچاسی", "چھیاسی", "ستاسی", "اٹھاسی", "نواسی", "نوے", "اکانوے", "بانوے", "ترانوے", "چورانوے", "پچانوے", "چھیانوے", "ستانوے", "اٹھانوے", "ننانوے"];
     const below1000 = (x) => {
       const p = [];
       const h = Math.floor(x / 100),
@@ -809,45 +751,10 @@
   } catch (e) {}
 
   const URDU_LETTERS = {
-    A: "اے",
-    B: "بی",
-    C: "سی",
-    D: "ڈی",
-    E: "ای",
-    F: "ایف",
-    G: "جی",
-    H: "ایچ",
-    I: "آئی",
-    J: "جے",
-    K: "کے",
-    L: "ایل",
-    M: "ایم",
-    N: "این",
-    O: "او",
-    P: "پی",
-    Q: "کیو",
-    R: "آر",
-    S: "ایس",
-    T: "ٹی",
-    U: "یو",
-    V: "وی",
-    W: "ڈبلیو",
-    X: "ایکس",
-    Y: "وائی",
-    Z: "زیڈ",
+    A: "اے", B: "بی", C: "سی", D: "ڈی", E: "ای", F: "ایف", G: "جی", H: "ایچ", I: "آئی", J: "جے", K: "کے", L: "ایل", M: "ایم",
+    N: "این", O: "او", P: "پی", Q: "کیو", R: "آر", S: "ایس", T: "ٹی", U: "یو", V: "وی", W: "ڈبلیو", X: "ایکس", Y: "وائی", Z: "زیڈ",
   };
-  const URDU_DIGITS = [
-    "صفر",
-    "ایک",
-    "دو",
-    "تین",
-    "چار",
-    "پانچ",
-    "چھ",
-    "سات",
-    "آٹھ",
-    "نو",
-  ];
+  const URDU_DIGITS = ["صفر", "ایک", "دو", "تین", "چار", "پانچ", "چھ", "سات", "آٹھ", "نو"];
 
   function boxCodeToUrduSpeech(code) {
     return (
@@ -905,135 +812,10 @@
   );
 
   // اردو الفاظ → دیوناگری (صرف وہ الفاظ جو یہ اسکرپٹ بولتا ہے)
-  const HI_NUMS = [
-    "सिफ़र",
-    "एक",
-    "दो",
-    "तीन",
-    "चार",
-    "पाँच",
-    "छह",
-    "सात",
-    "आठ",
-    "नौ",
-    "दस",
-    "ग्यारह",
-    "बारह",
-    "तेरह",
-    "चौदह",
-    "पंद्रह",
-    "सोलह",
-    "सत्रह",
-    "अठारह",
-    "उन्नीस",
-    "बीस",
-    "इक्कीस",
-    "बाईस",
-    "तेईस",
-    "चौबीस",
-    "पच्चीस",
-    "छब्बीस",
-    "सत्ताईस",
-    "अट्ठाईस",
-    "उनतीस",
-    "तीस",
-    "इकतीस",
-    "बत्तीस",
-    "तैंतीस",
-    "चौंतीस",
-    "पैंतीस",
-    "छत्तीस",
-    "सैंतीस",
-    "अड़तीस",
-    "उनतालीस",
-    "चालीस",
-    "इकतालीस",
-    "बयालीस",
-    "तैंतालीस",
-    "चौवालीस",
-    "पैंतालीस",
-    "छियालीस",
-    "सैंतालीस",
-    "अड़तालीस",
-    "उनचास",
-    "पचास",
-    "इक्यावन",
-    "बावन",
-    "तिरपन",
-    "चौवन",
-    "पचपन",
-    "छप्पन",
-    "सत्तावन",
-    "अट्ठावन",
-    "उनसठ",
-    "साठ",
-    "इकसठ",
-    "बासठ",
-    "तिरसठ",
-    "चौंसठ",
-    "पैंसठ",
-    "छियासठ",
-    "सड़सठ",
-    "अड़सठ",
-    "उनहत्तर",
-    "सत्तर",
-    "इकहत्तर",
-    "बहत्तर",
-    "तिहत्तर",
-    "चौहत्तर",
-    "पचहत्तर",
-    "छिहत्तर",
-    "सतहत्तर",
-    "अठहत्तर",
-    "उन्यासी",
-    "अस्सी",
-    "इक्यासी",
-    "बयासी",
-    "तिरासी",
-    "चौरासी",
-    "पचासी",
-    "छियासी",
-    "सत्तासी",
-    "अट्ठासी",
-    "नवासी",
-    "नब्बे",
-    "इक्यानवे",
-    "बानवे",
-    "तिरानवे",
-    "चौरानवे",
-    "पचानवे",
-    "छियानवे",
-    "सत्तानवे",
-    "अट्ठानवे",
-    "निन्यानवे",
-  ];
+  const HI_NUMS = ["सिफ़र", "एक", "दो", "तीन", "चार", "पाँच", "छह", "सात", "आठ", "नौ", "दस", "ग्यारह", "बारह", "तेरह", "चौदह", "पंद्रह", "सोलह", "सत्रह", "अठारह", "उन्नीस", "बीस", "इक्कीस", "बाईस", "तेईस", "चौबीस", "पच्चीस", "छब्बीस", "सत्ताईस", "अट्ठाईस", "उनतीस", "तीस", "इकतीस", "बत्तीस", "तैंतीस", "चौंतीस", "पैंतीस", "छत्तीस", "सैंतीस", "अड़तीस", "उनतालीस", "चालीस", "इकतालीस", "बयालीस", "तैंतालीस", "चौवालीस", "पैंतालीस", "छियालीस", "सैंतालीस", "अड़तालीस", "उनचास", "पचास", "इक्यावन", "बावन", "तिरपन", "चौवन", "पचपन", "छप्पन", "सत्तावन", "अट्ठावन", "उनसठ", "साठ", "इकसठ", "बासठ", "तिरसठ", "चौंसठ", "पैंसठ", "छियासठ", "सड़सठ", "अड़सठ", "उनहत्तर", "सत्तर", "इकहत्तर", "बहत्तर", "तिहत्तर", "चौहत्तर", "पचहत्तर", "छिहत्तर", "सतहत्तर", "अठहत्तर", "उन्यासी", "अस्सी", "इक्यासी", "बयासी", "तिरासी", "चौरासी", "पचासी", "छियासी", "सत्तासी", "अट्ठासी", "नवासी", "नब्बे", "इक्यानवे", "बानवे", "तिरानवे", "चौरानवे", "पचानवे", "छियानवे", "सत्तानवे", "अट्ठानवे", "निन्यानवे"];
   const HI_LET = {
-    A: "ए",
-    B: "बी",
-    C: "सी",
-    D: "डी",
-    E: "ई",
-    F: "एफ़",
-    G: "जी",
-    H: "एच",
-    I: "आई",
-    J: "जे",
-    K: "के",
-    L: "एल",
-    M: "एम",
-    N: "एन",
-    O: "ओ",
-    P: "पी",
-    Q: "क्यू",
-    R: "आर",
-    S: "एस",
-    T: "टी",
-    U: "यू",
-    V: "वी",
-    W: "डब्ल्यू",
-    X: "एक्स",
-    Y: "वाई",
-    Z: "ज़ेड",
+    A: "ए", B: "बी", C: "सी", D: "डी", E: "ई", F: "एफ़", G: "जी", H: "एच", I: "आई", J: "जे", K: "के", L: "एल", M: "एम",
+    N: "एन", O: "ओ", P: "पी", Q: "क्यू", R: "आर", S: "एस", T: "टी", U: "यू", V: "वी", W: "डब्ल्यू", X: "एक्स", Y: "वाई", Z: "ज़ेड",
   };
   let HI_MAP = null;
   function urduToDevanagari(text) {
@@ -1378,42 +1160,10 @@
       m[URDU_LETTERS[k]] = k;
     });
     Object.assign(m, {
-      ay: "A",
-      bee: "B",
-      be: "B",
-      see: "C",
-      sea: "C",
-      dee: "D",
-      ee: "E",
-      eff: "F",
-      ef: "F",
-      gee: "G",
-      jee: "G",
-      aitch: "H",
-      eye: "I",
-      jay: "J",
-      kay: "K",
-      el: "L",
-      em: "M",
-      en: "N",
-      oh: "O",
-      pee: "P",
-      cue: "Q",
-      queue: "Q",
-      are: "R",
-      ess: "S",
-      tee: "T",
-      you: "U",
-      vee: "V",
-      ex: "X",
-      why: "Y",
-      zee: "Z",
-      zed: "Z",
-      بے: "B",
-      سے: "C",
-      ڈے: "D",
-      جے: "J",
-      کے: "K",
+      ay: "A", bee: "B", be: "B", see: "C", sea: "C", dee: "D", ee: "E", eff: "F", ef: "F", gee: "G", jee: "G",
+      aitch: "H", eye: "I", jay: "J", kay: "K", el: "L", em: "M", en: "N", oh: "O", pee: "P", cue: "Q", queue: "Q",
+      are: "R", ess: "S", tee: "T", you: "U", vee: "V", ex: "X", why: "Y", zee: "Z", zed: "Z",
+      بے: "B", سے: "C", ڈے: "D", جے: "J", کے: "K",
     });
     return m;
   })();
@@ -1423,54 +1173,16 @@
       m[w] = String(i);
     });
     Object.assign(m, {
-      zero: "0",
-      one: "1",
-      two: "2",
-      three: "3",
-      four: "4",
-      five: "5",
-      six: "6",
-      seven: "7",
-      eight: "8",
-      nine: "9",
-      to: "2",
-      too: "2",
-      for: "4",
-      won: "1",
-      چھے: "6",
-      نَو: "9",
+      zero: "0", one: "1", two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9",
+      to: "2", too: "2", for: "4", won: "1",
+      چھے: "6", نَو: "9",
     });
     return m;
   })();
   const EN_NUM = {
-    zero: 0,
-    one: 1,
-    two: 2,
-    three: 3,
-    four: 4,
-    five: 5,
-    six: 6,
-    seven: 7,
-    eight: 8,
-    nine: 9,
-    ten: 10,
-    eleven: 11,
-    twelve: 12,
-    thirteen: 13,
-    fourteen: 14,
-    fifteen: 15,
-    sixteen: 16,
-    seventeen: 17,
-    eighteen: 18,
-    nineteen: 19,
-    twenty: 20,
-    thirty: 30,
-    forty: 40,
-    fifty: 50,
-    sixty: 60,
-    seventy: 70,
-    eighty: 80,
-    ninety: 90,
+    zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
+    twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
   };
   function enWordsToNum(ws) {
     let total = 0,
@@ -1521,119 +1233,29 @@
     SP_LETTER[HI_LET[k]] = k;
   });
   Object.assign(SP_LETTER, {
-    सि: "C",
-    बि: "B",
-    ਏ: "A",
-    ਬੀ: "B",
-    ਸੀ: "C",
-    ਡੀ: "D",
-    ਈ: "E",
-    ਐਫ: "F",
-    ਜੀ: "G",
-    ਐਚ: "H",
-    ਆਈ: "I",
-    ਜੇ: "J",
-    ਕੇ: "K",
-    ਐਲ: "L",
-    ਐਮ: "M",
-    ਐਨ: "N",
-    ਓ: "O",
-    ਪੀ: "P",
-    ਕਿਊ: "Q",
-    ਆਰ: "R",
-    ਐਸ: "S",
-    ਟੀ: "T",
-    ਯੂ: "U",
-    ਵੀ: "V",
-    ਡਬਲਯੂ: "W",
-    ਐਕਸ: "X",
-    ਵਾਈ: "Y",
-    ਜ਼ੈੱਡ: "Z",
-    اے: "A",
-    بِی: "B",
-    سِی: "C",
-    ایچ: "H",
-    آئے: "I",
-    کیے: "K",
-    ٹِی: "T",
+    सि: "C", बि: "B",
+    ਏ: "A", ਬੀ: "B", ਸੀ: "C", ਡੀ: "D", ਈ: "E", ਐਫ: "F", ਜੀ: "G", ਐਚ: "H", ਆਈ: "I", ਜੇ: "J", ਕੇ: "K", ਐਲ: "L", ਐਮ: "M",
+    ਐਨ: "N", ਓ: "O", ਪੀ: "P", ਕਿਊ: "Q", ਆਰ: "R", ਐਸ: "S", ਟੀ: "T", ਯੂ: "U", ਵੀ: "V", ਡਬਲਯੂ: "W", ਐਕਸ: "X", ਵਾਈ: "Y", ਜ਼ੈੱਡ: "Z",
+    اے: "A", بِی: "B", سِی: "C", ایچ: "H", آئے: "I", کیے: "K", ٹِی: "T",
   });
   HI_NUMS.slice(0, 10).forEach((w, i) => {
     SP_DIGIT[w] = String(i);
   });
   Object.assign(SP_DIGIT, {
-    اک: "1",
-    اکّ: "1",
-    اکھ: "1",
-    تن: "3",
-    تِن: "3",
-    پنج: "5",
-    چھے: "6",
-    چھیہ: "6",
-    ست: "7",
-    ستّ: "7",
-    اٹھ: "8",
-    اٹھّ: "8",
-    نوں: "9",
-    نَوں: "9",
-    سفر: "0",
-    سنّ: "0",
-    ik: "1",
-    ikk: "1",
-    ek: "1",
-    do: "2",
-    dou: "2",
-    teen: "3",
-    tin: "3",
-    char: "4",
-    chaar: "4",
-    panj: "5",
-    panch: "5",
-    paanch: "5",
-    chhe: "6",
-    chhay: "6",
-    cheh: "6",
-    che: "6",
-    saat: "7",
-    satt: "7",
-    sat: "7",
-    aath: "8",
-    atth: "8",
-    ath: "8",
-    nau: "9",
-    nou: "9",
-    nao: "9",
-    sifar: "0",
-    siffar: "0",
-    ਇੱਕ: "1",
-    ਇਕ: "1",
-    ਦੋ: "2",
-    ਤਿੰਨ: "3",
-    ਚਾਰ: "4",
-    ਪੰਜ: "5",
-    ਛੇ: "6",
-    ਸੱਤ: "7",
-    ਅੱਠ: "8",
-    ਨੌਂ: "9",
-    ਸਿਫ਼ਰ: "0",
+    اک: "1", اکّ: "1", اکھ: "1", تن: "3", تِن: "3", پنج: "5", چھے: "6", چھیہ: "6", ست: "7", ستّ: "7", اٹھ: "8", اٹھّ: "8",
+    نوں: "9", نَوں: "9", سفر: "0", سنّ: "0",
+    ik: "1", ikk: "1", ek: "1", do: "2", dou: "2", teen: "3", tin: "3", char: "4", chaar: "4", panj: "5", panch: "5", paanch: "5",
+    chhe: "6", chhay: "6", cheh: "6", che: "6", saat: "7", satt: "7", sat: "7", aath: "8", atth: "8", ath: "8",
+    nau: "9", nou: "9", nao: "9", sifar: "0", siffar: "0",
+    ਇੱਕ: "1", ਇਕ: "1", ਦੋ: "2", ਤਿੰਨ: "3", ਚਾਰ: "4", ਪੰਜ: "5", ਛੇ: "6", ਸੱਤ: "7", ਅੱਠ: "8", ਨੌਂ: "9", ਸਿਫ਼ਰ: "0",
   });
 
   // رقم کے الفاظ (اردو، پنجابی، ہندی، گرمکھی، رومن، انگلش) → عدد
   const LOOSE_UNIT = {},
     LOOSE_MULT = {},
     LOOSE_HALF = {
-      ڈیڑھ: 1.5,
-      ڈیڈھ: 1.5,
-      डेढ़: 1.5,
-      ਡੇਢ: 1.5,
-      dedh: 1.5,
-      derh: 1.5,
-      ڈھائی: 2.5,
-      اڈھائی: 2.5,
-      اڑھائی: 2.5,
-      ढाई: 2.5,
-      ਢਾਈ: 2.5,
-      dhai: 2.5,
-      adhai: 2.5,
+      ڈیڑھ: 1.5, ڈیڈھ: 1.5, डेढ़: 1.5, ਡੇਢ: 1.5, dedh: 1.5, derh: 1.5,
+      ڈھائی: 2.5, اڈھائی: 2.5, اڑھائی: 2.5, ढाई: 2.5, ਢਾਈ: 2.5, dhai: 2.5, adhai: 2.5,
     };
   (() => {
     for (let n = 0; n < 100; n++) {
@@ -1670,17 +1292,7 @@
     add(90, ["نوے", "nabbe", "ਨੱਬੇ"]);
     [
       ["سو", "سؤ", "sau", "so", "सौ", "ਸੌ", "ਸੋ"],
-      [
-        "ہزار",
-        "ہجار",
-        "hazar",
-        "hazaar",
-        "hajar",
-        "हज़ार",
-        "हजार",
-        "ਹਜ਼ਾਰ",
-        "ਹਜ਼ਾਰ",
-      ],
+      ["ہزار", "ہجار", "hazar", "hazaar", "hajar", "हज़ार", "हजार", "ਹਜ਼ਾਰ", "ਹਜ਼ਾਰ"],
       ["لکھ", "لاکھ", "lakh", "lac", "लाख", "ਲੱਖ"],
     ].forEach((arr, i) =>
       arr.forEach((w) => {
@@ -2160,7 +1772,12 @@
     return new Promise((resolve) => {
       const ov = openDialog(
         "رقم / Amount",
-        ` <div class="mab-dlg-label"><span>رقم لکھیں (روپے)</span><span id="mab-am-fmt"></span></div> <input id="mab-am-input" class="mab-dlg-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="${MAXDIGITS}" autocomplete="off" placeholder="یہاں رقم لکھیں" style="text-align:center;"> <div id="mab-am-hint" class="mab-dlg-hint">صرف اعداد، 0 سے زیادہ</div> <div id="mab-am-words" class="mab-dlg-words" dir="rtl">—</div> <div id="mab-am-warn" class="mab-dlg-warn" style="display:none;">⚠️ بڑی رقم ہے، ایک بار پھر چیک کر لیں</div> <div class="mab-chips"> ${[100, 150, 200, 250, 300, 500] .map( (v) => `<button type="button" class="mab-chip" data-v="${v}">${v}</button>` ) .join("")} </div> <div class="mab-dlg-actions" style="margin-top:14px;"> <button id="mab-am-cancel" class="mab-btn mab-btn-cancel">منسوخ</button> <button id="mab-am-ok" class="mab-btn mab-btn-ok" disabled>✔ محفوظ کریں اور Process</button> </div>`,
+        ` <div class="mab-dlg-label"><span>رقم لکھیں (روپے)</span><span id="mab-am-fmt"></span></div> <input id="mab-am-input" class="mab-dlg-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="${MAXDIGITS}" autocomplete="off" placeholder="یہاں رقم لکھیں" style="text-align:center;"> <div id="mab-am-hint" class="mab-dlg-hint">صرف اعداد، 0 سے زیادہ</div> <div id="mab-am-words" class="mab-dlg-words" dir="rtl">—</div> <div id="mab-am-warn" class="mab-dlg-warn" style="display:none;">⚠️ بڑی رقم ہے، ایک بار پھر چیک کر لیں</div> <div class="mab-chips"> ${[100, 150, 200, 250, 300, 500]
+          .map(
+            (v) =>
+              `<button type="button" class="mab-chip" data-v="${v}">${v}</button>`
+          )
+          .join("")} </div> <div class="mab-dlg-actions" style="margin-top:14px;"> <button id="mab-am-cancel" class="mab-btn mab-btn-cancel">منسوخ</button> <button id="mab-am-ok" class="mab-btn mab-btn-ok" disabled>✔ محفوظ کریں اور Process</button> </div>`,
         { replay: true, mic: true }
       );
       const inp = ov.querySelector("#mab-am-input");
@@ -2388,26 +2005,10 @@
           }
     );
     [
-      [
-        "tl",
-        "nwse-resize",
-        "border-top-left-radius:14px;border-width:5px 0 0 5px;",
-      ],
-      [
-        "tr",
-        "nesw-resize",
-        "border-top-right-radius:14px;border-width:5px 5px 0 0;",
-      ],
-      [
-        "bl",
-        "nesw-resize",
-        "border-bottom-left-radius:14px;border-width:0 0 5px 5px;",
-      ],
-      [
-        "br",
-        "nwse-resize",
-        "border-bottom-right-radius:14px;border-width:0 5px 5px 0;",
-      ],
+      ["tl", "nwse-resize", "border-top-left-radius:14px;border-width:5px 0 0 5px;"],
+      ["tr", "nesw-resize", "border-top-right-radius:14px;border-width:5px 5px 0 0;"],
+      ["bl", "nesw-resize", "border-bottom-left-radius:14px;border-width:0 0 5px 5px;"],
+      ["br", "nwse-resize", "border-bottom-right-radius:14px;border-width:0 5px 5px 0;"],
     ].forEach(([k, cur, shape]) => {
       const h = document.createElement("div");
       h.title = "کھینچ کر سائز بدلیں";
@@ -2477,7 +2078,15 @@
     });
   }
 
-  function askCorrection(box, old) {
+  // صرف دکھانے کے لیے: 923004577834 → 300-45-77-834 (92 چھپا ہوا؛ ڈیٹا اور سپروائزر پیغام میں کوئی تبدیلی نہیں)
+  function mobDisp(v) {
+    let d = String(v == null ? "" : v).replace(/\D/g, "");
+    if (d.length === 12 && d.startsWith("92")) d = d.slice(2);
+    else if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+    if (!/^3\d{9}$/.test(d)) return v;
+    return d.slice(0, 3) + "-" + d.slice(3, 5) + "-" + d.slice(5, 7) + "-" + d.slice(7);
+  }
+  function askCorrection(box, old, host, onClose) {
     const esc = (s) =>
       String(s == null ? "" : s).replace(
         /[&<>"']/g,
@@ -2492,24 +2101,39 @@
       );
     const oShop = old["Shop Name"] || "",
       oOwner = old["Shop Owner Name"] || "",
-      oMob = old["Mobile Number"] || "";
+      oMob = old["Mobile Number"] || "",
+      oAddr = old["Address"] || "",
+      hasAddr = old["Address"] !== undefined;
     const sup = getSup();
     const supName0 = getSupName();
     const haveSup = !!(sup && supName0);
 
-    const group = (title, id, oldVal, extra, spell) => ` <div class="mab-grp"> <div class="mab-grp-title">${title}</div> <div class="mab-old"><span>Old</span><div dir="auto">${ esc(oldVal) || "—" }</div></div> <input id="${id}" class="mab-new" type="text" autocomplete="off" ${extra}> <div id="${id}-h" class="mab-fhint"></div> ${ spell ? `<div id="${id}-sp" style="display:none;margin-top:6px;"></div>` : "" } </div>`;
+    const group = (title, id, oldVal, extra, spell) => ` <div class="mab-grp"> <div class="mab-grp-title">${title}</div> <div class="mab-old"><span>Old</span><div dir="auto">${esc(oldVal) || "—"}</div></div> <input id="${id}" class="mab-new" type="text" autocomplete="off" ${extra}> <div id="${id}-h" class="mab-fhint"></div> ${spell ? `<div id="${id}-sp" style="display:none;margin-top:6px;"></div>` : ""} </div>`;
 
-    const ov = openDialog(
-      "✏️ ڈیٹا درستی (واٹس ایپ)",
-      ` ${group( "دکان کا نام / Shop name", "mab-f-shop", oShop, 'placeholder="New Shop name (نیا نام)"', true )} ${group( "مالک کا نام / Owner name", "mab-f-owner", oOwner, 'placeholder="New owner name (English only)" lang="en" autocorrect="off" autocapitalize="words" dir="ltr"', true )} ${group( "موبائل / Mobile", "mab-f-mob", oMob, 'placeholder="0300-1234567" inputmode="numeric" dir="ltr"' )} <div class="mab-grp" id="mab-sup-box"> <div class="mab-grp-title">سپروائزر / Supervisor</div> <div id="mab-sup-saved" style="display:${ haveSup ? "flex" : "none" };align-items:center;justify-content:space-between;gap:8px;"> <div style="display:flex;flex-direction:column;gap:2px;font-weight:800;color:#2f6b1f;"> <span id="mab-sup-name-show" dir="auto" style="font-size:15px;">${esc( supName0 )}</span> <span dir="ltr" id="mab-sup-show" style="font-size:14px;text-align:right;">${esc( sup )}</span> </div> <button type="button" id="mab-sup-edit" class="mab-mini">تبدیل</button> </div> <div id="mab-sup-edit-box" style="display:${ haveSup ? "none" : "block" };"> <input id="mab-f-supname" class="mab-new" type="text" dir="auto" placeholder="سپروائزر کا نام (ایک بار لکھیں)" autocomplete="off" value="${esc( supName0 )}"> <input id="mab-f-sup" class="mab-new" type="text" inputmode="numeric" dir="ltr" placeholder="3001234567" autocomplete="off" style="margin-top:8px;" value="${esc( sup ? sup.replace(/^92/, "") : "" )}"> <button type="button" id="mab-sup-pick" class="mab-mini" style="margin-top:8px;width:100%;padding:10px 12px;font-size:13px;">📇 فون بک سے نمبر تلاش کریں</button> </div> <div id="mab-f-sup-h" class="mab-fhint"></div> </div> <div id="mab-f-err" class="mab-dlg-hint bad" style="display:none;"></div> <div class="mab-dlg-actions" style="margin-top:12px;"> <button id="mab-f-cancel" class="mab-btn mab-btn-cancel">منسوخ</button> <button id="mab-f-send" class="mab-btn mab-btn-ok" disabled>واٹس ایپ بھیجیں ➜</button> </div>`,
-      { noSnd: true, scroll: true }
-    );
-    makeResizable(ov, "mab_corr_geom");
+    const corrHtml =
+      ` ${group("دکان کا نام / Shop name", "mab-f-shop", oShop, 'placeholder="New Shop name (نیا نام)"', true)} ${group("مالک کا نام / Owner name", "mab-f-owner", oOwner, 'placeholder="New owner name (English only)" lang="en" autocorrect="off" autocapitalize="words" dir="ltr"', true)} ${group("موبائل / Mobile", "mab-f-mob", mobDisp(oMob), 'placeholder="0300-1234567" inputmode="numeric" dir="ltr"')} ${hasAddr ? group("ایڈریس / Address", "mab-f-addr", oAddr, 'placeholder="New Address (نیا ایڈریس)"') : ""} <div class="mab-grp" id="mab-sup-box"> <div class="mab-grp-title">سپروائزر / Supervisor</div> <div id="mab-sup-saved" style="display:${haveSup ? "flex" : "none"};align-items:center;justify-content:space-between;gap:8px;"> <div style="display:flex;flex-direction:column;gap:2px;font-weight:800;color:#2f6b1f;"> <span id="mab-sup-name-show" dir="auto" style="font-size:15px;">${esc(supName0)}</span> <span dir="ltr" id="mab-sup-show" style="font-size:14px;text-align:right;">${esc(sup)}</span> </div> <button type="button" id="mab-sup-edit" class="mab-mini">تبدیل</button> </div> <div id="mab-sup-edit-box" style="display:${haveSup ? "none" : "block"};"> <input id="mab-f-supname" class="mab-new" type="text" dir="auto" placeholder="سپروائزر کا نام (ایک بار لکھیں)" autocomplete="off" value="${esc(supName0)}"> <input id="mab-f-sup" class="mab-new" type="text" inputmode="numeric" dir="ltr" placeholder="3001234567" autocomplete="off" style="margin-top:8px;" value="${esc(sup ? sup.replace(/^92/, "") : "")}"> <button type="button" id="mab-sup-pick" class="mab-mini" style="margin-top:8px;width:100%;padding:10px 12px;font-size:13px;">📇 فون بک سے نمبر تلاش کریں</button> </div> <div id="mab-f-sup-h" class="mab-fhint"></div> </div> <div id="mab-f-err" class="mab-dlg-hint bad" style="display:none;"></div> <div class="mab-dlg-actions" style="margin-top:12px;"> <button id="mab-f-cancel" class="mab-btn mab-btn-cancel">منسوخ</button> <button id="mab-f-send" class="mab-btn mab-btn-ok" disabled>واٹس ایپ بھیجیں ➜</button> </div>`;
+    let ov;
+    if (host) {
+      host.innerHTML = corrHtml;
+      ov = host;
+    } else {
+      ov = openDialog("✏️ ڈیٹا درستی (واٹس ایپ)", corrHtml, {
+        noSnd: true,
+        scroll: true,
+      });
+      makeResizable(ov, "mab_corr_geom");
+    }
+    const closeIt = () => {
+      if (host) {
+        if (onClose) onClose();
+      } else ov.remove();
+    };
 
     const $ = (id) => ov.querySelector("#" + id);
     const shop = $("mab-f-shop"),
       owner = $("mab-f-owner"),
       mob = $("mab-f-mob"),
+      addr = $("mab-f-addr"),
       supIn = $("mab-f-sup"),
       supNameIn = $("mab-f-supname");
     const send = $("mab-f-send");
@@ -2623,7 +2247,8 @@
           ? normPkMobile(supIn.value)
           : ""
         : sup;
-      const anyChange = shop.value.trim() || owner.value.trim() || d;
+      const anyChange =
+        shop.value.trim() || owner.value.trim() || d || (addr && addr.value.trim());
       const ready = anyChange && mobOk && supVal;
       send.disabled = !ready;
       const err = $("mab-f-err");
@@ -2633,7 +2258,7 @@
       err.style.display = "none";
     };
 
-    [shop, owner, mob, supIn, supNameIn].forEach((e) =>
+    [shop, owner, mob, addr, supIn, supNameIn].filter(Boolean).forEach((e) =>
       e.addEventListener("input", update)
     );
     // فیلڈ چھوڑتے ہی: فالتو خالی جگہیں ختم اور ہر لفظ کا پہلا حرف بڑا
@@ -2681,7 +2306,7 @@
       supNameIn.focus();
       update();
     });
-    $("mab-f-cancel").addEventListener("click", () => ov.remove());
+    $("mab-f-cancel").addEventListener("click", closeIt);
     send.addEventListener("click", () => {
       if (send.disabled) return;
       const supNum = editingSup ? normPkMobile(supIn.value) : sup;
@@ -2718,6 +2343,8 @@
       pair("Old Shop name", "New Shop name", oShop, nShop);
       pair("Old owner name", "New owner name", oOwner, nOwner);
       pair("Old mobile", "New mobile", oMob, nMob);
+      const nAddr = addr ? addr.value.replace(/\s+/g, " ").trim() : "";
+      if (hasAddr || nAddr) pair("Old address", "New address", oAddr, nAddr);
       lines.push("");
       lines.push("مطلوبہ تبدیلی فرما کر آگاہ فرما دیجئے📥");
       lines.push("جزاک اللہ خیرا🤲");
@@ -2725,7 +2352,7 @@
       lines.push("📅 Date: " + dateTxt);
       lines.push("🕐 Time: " + timeTxt);
       const msg = lines.join("\n");
-      ov.remove();
+      closeIt();
       window.open(
         "https://wa.me/" + supNum + "?text=" + encodeURIComponent(msg),
         "_blank"
@@ -2734,1190 +2361,102 @@
     update();
   }
 
-  async function run(btn) {
-    if (document.getElementById("mab-dlg-overlay")) return;
-    const setTxt = (t) => {
-      if (btn) btn.textContent = t;
-    };
-    const fail = (msg, ms) => {
-      setTxt(msg);
-      setTimeout(() => {
-        setTxt("⚡ Fill");
-      }, ms || 6000);
-    };
-    warmVoiceNow();
-
-    // 1) Fill دباتے ہی: سرور سے آزاد خانے پس منظر میں (آپ کی ٹائپنگ کے دوران)
-    presetTask();
-    const code = await askBoxCode();
-    if (code === null) return;
-
-    // 2) Box Code منتخب کرنا (نتیجہ آتے ہی)
-    setTxt("Box Code...");
-    const staleEl = find("Shop Name");
-    const stale = staleEl ? String(staleEl.value || "").trim() : "";
-    if (code.trim() && !(await setBoxCode(code.trim()))) {
-      fail("Missing: Box Code");
-      return;
-    }
-
-    // 3) ساتھ ساتھ: دکان ڈیٹا + Subtype + لوکیشن؛ پھر ایک نظر میں پورا فارم
-    const ctx = { stale, tSel: Date.now(), loc: makeLocTask() };
-    setTxt("Waiting data...");
-    const miss = await waitReady(20000, ctx);
-    if (miss.length) {
-      ["Slip Type", "Donation Type", "Donation Subtype", "Donation Purpose"]
-        .filter((n) => miss.includes(n))
-        .forEach(logOptions);
-      fail("Missing: " + miss.join(", "), 8000);
-      return;
-    }
-
-    const formData = {
-      "Box Code": code.trim().toUpperCase(),
-      Amount: "",
-      "Shop Name": readFromCollectionForm([
-        "Shop Name",
-        "Shop",
-        "Store Name",
-        "Dukan",
-      ]),
-      "Shop Owner Name": readFromCollectionForm([
-        "Shop Owner Name",
-        "Shop Owner",
-        "Owner Name",
-        "Owner",
-        "Shopkeeper",
-      ]),
-      "Mobile Number": readFromCollectionForm([
-        "Mobile Number",
-        "Mobile No",
-        "Mobile #",
-        "Mobile",
-        "Cell No",
-        "Phone",
-      ]),
-      "Shop Address": readFromCollectionForm([
-        "Shop Address",
-        "Address",
-        "Shop Location",
-      ]),
-      "Near By": readFromCollectionForm([
-        "Near By",
-        "Nearby",
-        "Near",
-        "Landmark",
-      ]),
-      "Donation Type": "Donation Box Nafila",
-      "Donation Subtype": "Sadqah",
-      "Donation Purpose": "All Purpose",
-    };
-
-    // 4) رقم
-    setTxt("رقم لکھیں...");
-    const amt = await askAmount();
-    if (!amt || !amt.trim()) {
-      fail("Amount نہیں لکھی", 3000);
-      return;
-    }
-    const a = find("Amount");
-    if (!a) {
-      fail("Missing: Amount");
-      return;
-    }
-    Object.getOwnPropertyDescriptor(
-      HTMLInputElement.prototype,
-      "value"
-    ).set.call(a, amt.trim());
-    fire(a);
-    formData["Amount"] = amt.trim();
-    sessionStorage.setItem("mab_captured_form", JSON.stringify(formData));
-
-    // 5) آخری ایک نظر اور فوراً Process
-    setTxt("Checking...");
-    const m2 = await waitReady(5000, ctx);
-    if (m2.length) {
-      fail("Missing: " + m2.join(", "), 8000);
-      return;
-    }
-    setTxt("Processing...");
-    if (!(await clickProcessButton())) {
-      fail("Missing: Process Button");
-      return;
-    }
-    setTxt("Done");
-    setTimeout(() => {
-      setTxt("⚡ Fill");
-    }, 4000);
-  }
-
   // =============================================================
-  // SECTION 3: بٹن اور بیک اپ ٹریگر
+  // v10.41: ایک ہی پینل — Box Code + دکان/دکاندار/موبائل + رقم
+  // lookup(code) → {shop, owner, mobile} یا {error}
+  // لوٹاتا ہے: {code, amount} یا null
   // =============================================================
-  function addButton() {
-    if (
-      norm(location.pathname).includes("confirmation") ||
-      location.pathname.includes("/eslip-print")
-    ) {
-      const existing = document.getElementById("oc-fill-btn");
-      if (existing) existing.style.display = "none";
-      return;
-    }
-
-    let b = document.getElementById("oc-fill-btn");
-    if (!b) {
-      b = document.createElement("button");
-      b.id = "oc-fill-btn";
-      b.textContent = "⚡ Fill";
-      b.style.cssText =
-        "position:fixed;right:12px;bottom:85px;z-index:2147483647;background:#2e7d32;color:#fff;border:2px solid #ffffff;border-radius:22px;padding:7px 13px;font-size:13px;font-weight:bold;box-shadow:0 3px 10px rgba(0,0,0,.45);cursor:pointer;display:block !important;touch-action:none;user-select:none;-webkit-user-select:none;";
-      b.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (window.__mabFillMoved) return;
-        run(b);
-      });
-      // Fill بٹن کو انگلی سے کھینچ کر کہیں بھی رکھیں (جگہ یاد رہتی ہے)
-      const FPOS = "mab_fill_pos";
-      const fApply = (x, y) => {
-        const nx = Math.max(
-            0,
-            Math.min(window.innerWidth - (b.offsetWidth || 70), x)
-          ),
-          ny = Math.max(
-            0,
-            Math.min(window.innerHeight - (b.offsetHeight || 34), y)
-          );
-        b.style.left = nx + "px";
-        b.style.top = ny + "px";
-        b.style.right = "auto";
-        b.style.bottom = "auto";
-        return { x: nx, y: ny };
-      };
-      let fd = null,
-        fm = false;
-      b.addEventListener("pointerdown", (e) => {
-        const r = b.getBoundingClientRect();
-        fd = {
-          dx: e.clientX - r.left,
-          dy: e.clientY - r.top,
-          sx: e.clientX,
-          sy: e.clientY,
-        };
-        fm = false;
-        try {
-          b.setPointerCapture(e.pointerId);
-        } catch (err) {}
-      });
-      b.addEventListener("pointermove", (e) => {
-        if (!fd) return;
-        if (!fm && Math.hypot(e.clientX - fd.sx, e.clientY - fd.sy) > 8)
-          fm = true;
-        if (fm) {
-          e.preventDefault();
-          fApply(e.clientX - fd.dx, e.clientY - fd.dy);
-        }
-      });
-      const fEnd = () => {
-        if (!fd) return;
-        if (fm) {
-          const r = b.getBoundingClientRect();
-          lsSet(
-            FPOS,
-            JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) })
-          );
-          window.__mabFillMoved = true;
-          setTimeout(() => {
-            window.__mabFillMoved = false;
-          }, 350);
-        }
-        fd = null;
-        fm = false;
-      };
-      b.addEventListener("pointerup", fEnd);
-      b.addEventListener("pointercancel", () => {
-        fd = null;
-        fm = false;
-      });
-      window.addEventListener("resize", () => {
-        if (b.style.top) {
-          const r = b.getBoundingClientRect();
-          fApply(r.left, r.top);
-        }
-      });
-      try {
-        document.body.appendChild(b);
-        const sp = JSON.parse(lsGet(FPOS, "null"));
-        if (sp && typeof sp.x === "number") fApply(sp.x, sp.y);
-      } catch (e) {}
-      document.body.appendChild(b);
-    } else {
-      b.style.display = "block";
-    }
-
-    // "Box Open" / "بکس کے عطیات" کے عنوان پر کلک کا بیک اپ
-    const headings = [
-      ...document.querySelectorAll("h1, h2, h3, h4, h5, div, span, p"),
-    ];
-    const boxOpenHeading = headings.find((el) =>
-      HEAD_OK.includes(norm(el.textContent))
-    );
-    if (boxOpenHeading && !boxOpenHeading.dataset.fillBound) {
-      boxOpenHeading.dataset.fillBound = "1";
-      boxOpenHeading.style.cursor = "pointer";
-      boxOpenHeading.addEventListener("click", () => run(b));
-    }
-  }
-
-  // =============================================================
-  // Cross Check کارڈ کی آواز: "<Owner> بھائی کے موبائل نمبر ... پر ... روپے ڈونیشن کا SMS بھیجا جا رہا ہے"
-  // =============================================================
-  const NAME_DICT = {
-    abu: ["ابو", "अबू"],
-    abubakar: ["ابو بکر", "अबू बकर"],
-    bakar: ["بکر", "बकर"],
-    baker: ["بکر", "बकर"],
-    bakr: ["بکر", "बकर"],
-    muhammad: ["محمد", "मुहम्मद"],
-    mohammad: ["محمد", "मुहम्मद"],
-    mohammed: ["محمد", "मुहम्मद"],
-    muhammed: ["محمد", "मुहम्मद"],
-    md: ["محمد", "मुहम्मद"],
-    ahmed: ["احمد", "अहमद"],
-    ahmad: ["احمد", "अहमद"],
-    ali: ["علی", "अली"],
-    hassan: ["حسن", "हसन"],
-    hasan: ["حسن", "हसन"],
-    hussain: ["حسین", "हुसैन"],
-    husain: ["حسین", "हुसैन"],
-    hussein: ["حسین", "हुसैन"],
-    usman: ["عثمان", "उस्मान"],
-    umar: ["عمر", "उमर"],
-    omar: ["عمر", "उमर"],
-    bilal: ["بلال", "बिलाल"],
-    imran: ["عمران", "इमरान"],
-    ibrahim: ["ابراہیم", "इब्राहीम"],
-    ismail: ["اسماعیل", "इस्माईल"],
-    yousaf: ["یوسف", "यूसुफ़"],
-    yousuf: ["یوسف", "यूसुफ़"],
-    yusuf: ["یوسف", "यूसुफ़"],
-    khan: ["خان", "ख़ान"],
-    shah: ["شاہ", "शाह"],
-    malik: ["ملک", "मलिक"],
-    butt: ["بٹ", "बट"],
-    rana: ["رانا", "राना"],
-    chaudhry: ["چوہدری", "चौधरी"],
-    chaudhary: ["چوہدری", "चौधरी"],
-    haji: ["حاجی", "हाजी"],
-    hafiz: ["حافظ", "हाफ़िज़"],
-    sheikh: ["شیخ", "शेख़"],
-    shaikh: ["شیخ", "शेख़"],
-    sb: ["صاحب", "साहब"],
-    sahab: ["صاحب", "साहब"],
-    sahib: ["صاحب", "साहब"],
-  };
-  const RN_C2 = {
-    kh: ["خ", "ख़"],
-    gh: ["غ", "ग़"],
-    sh: ["ش", "श"],
-    ch: ["چ", "च"],
-    th: ["تھ", "थ"],
-    ph: ["ف", "फ़"],
-    zh: ["ژ", "ज़"],
-    dh: ["دھ", "ध"],
-    bh: ["بھ", "भ"],
-    jh: ["جھ", "झ"],
-  };
-  const RN_C1 = {
-    b: ["ب", "ब"],
-    c: ["ک", "क"],
-    d: ["د", "द"],
-    f: ["ف", "फ़"],
-    g: ["گ", "ग"],
-    h: ["ہ", "ह"],
-    j: ["ج", "ज"],
-    k: ["ک", "क"],
-    l: ["ل", "ल"],
-    m: ["م", "म"],
-    n: ["ن", "न"],
-    p: ["پ", "प"],
-    q: ["ق", "क़"],
-    r: ["ر", "र"],
-    s: ["س", "स"],
-    t: ["ت", "त"],
-    v: ["و", "व"],
-    w: ["و", "व"],
-    x: ["کس", "क्स"],
-    y: ["ی", "य"],
-    z: ["ز", "ज़"],
-  };
-  // [اردو شروع, اردو درمیان, اردو آخر, ہندی الگ حرف, ہندی ماترا, ہندی ماترا آخر]
-  const RN_V = {
-    aa: ["آ", "ا", "ا", "आ", "ा", "ा"],
-    ai: ["ای", "ی", "ے", "ऐ", "ै", "ै"],
-    au: ["او", "و", "و", "औ", "ौ", "ौ"],
-    ee: ["ای", "ی", "ی", "ई", "ी", "ी"],
-    oo: ["او", "و", "و", "ऊ", "ू", "ू"],
-    a: ["ا", "", "ا", "अ", "", ""],
-    e: ["ا", "", "ے", "ए", "े", "े"],
-    i: ["ا", "", "ی", "इ", "ि", "ी"],
-    o: ["او", "و", "و", "ओ", "ो", "ो"],
-    u: ["ا", "", "و", "उ", "ु", "ू"],
-  };
-  function romanWord(word) {
-    const w = word.toLowerCase().replace(/[^a-z]/g, "");
-    if (!w) return null;
-    if (NAME_DICT[w]) return { ur: NAME_DICT[w][0], hi: NAME_DICT[w][1] };
-    const vs = [
-      "aa",
-      "ai",
-      "au",
-      "ou",
-      "ee",
-      "ie",
-      "oo",
-      "a",
-      "e",
-      "i",
-      "o",
-      "u",
-    ];
-    let ur = "",
-      hi = "",
-      i = 0,
-      afterCons = false;
-    while (i < w.length) {
-      const d = w.substr(i, 2);
-      if (RN_C2[d]) {
-        ur += RN_C2[d][0];
-        hi += RN_C2[d][1];
-        i += 2;
-        afterCons = true;
-        continue;
-      }
-      if (RN_C1[w[i]]) {
-        ur += RN_C1[w[i]][0];
-        hi += RN_C1[w[i]][1];
-        i++;
-        afterCons = true;
-        continue;
-      }
-      let m = vs.find((v) => w.substr(i, v.length) === v);
-      if (!m) {
-        i++;
-        continue;
-      }
-      i += m.length;
-      const key = m === "ou" ? "au" : m === "ie" ? "ee" : m;
-      const t = RN_V[key],
-        last = i >= w.length;
-      ur += !afterCons ? t[0] : last ? t[2] : t[1];
-      hi += !afterCons ? t[3] : last ? t[5] : t[4];
-      afterCons = false;
-    }
-    return { ur, hi };
-  }
-  function nameForSpeech(name) {
-    const parts = String(name || "")
-      .split(/\s+/)
-      .filter(Boolean);
-    const ur = [],
-      hi = [];
-    parts.forEach((p) => {
-      if (/[\u0600-\u06FF]/.test(p)) {
-        ur.push(p);
-        hi.push(p);
-        return;
-      }
-      const r = romanWord(p);
-      if (r) {
-        ur.push(r.ur);
-        hi.push(r.hi);
-      }
-    });
-    return { ur: ur.join(" "), hi: hi.join(" ") };
-  }
-  // ہندسوں کی ادائیگی: 0 → "زیرو"
-  const hiNum = (n) => {
-    urduToDevanagari("جی");
-    return numToUrdu(n)
-      .split(" ")
-      .map((w) => HI_MAP[w] || w)
-      .join(" ");
-  };
-  const num2 = (n) =>
-    n === 0 ? { ur: "زیرو", hi: "ज़ीरो" } : { ur: numToUrdu(n), hi: hiNum(n) };
-  function mobileForSpeech(raw) {
-    let d = String(raw || "").replace(/\D/g, "");
-    if (d.length === 12 && d.startsWith("92")) d = d.slice(2);
-    else if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
-    const dig = (c) =>
-      +c === 0
-        ? { ur: "زیرو", hi: "ज़ीरो" }
-        : { ur: URDU_DIGITS[+c], hi: HI_NUMS[+c] };
-    const out = [];
-    if (d.length === 10) {
-      out.push(num2(+d.slice(0, 3))); // 347 → تین سو سینتالیس
-      out.push(dig(d[3])); // 0 → زیرو
-      for (let k = 4; k < 10; k += 2) {
-        // 63 67 84 → جوڑوں میں
-        const p = d.substr(k, 2);
-        if (p[0] === "0") out.push(dig(p[0]), dig(p[1]));
-        else out.push(num2(+p));
-      }
-    } else {
-      d.split("").forEach((c) => out.push(dig(c)));
-    }
-    return {
-      ur: out.map((x) => x.ur).join("، "),
-      hi: out.map((x) => x.hi).join(", "),
-    };
-  }
-  function buildSmsSpeech(saved) {
-    const owner = nameForSpeech(saved["Shop Owner Name"]);
-    const mob = mobileForSpeech(saved["Mobile Number"]);
-    const amt = parseInt(String(saved["Amount"] || "").replace(/\D/g, ""), 10);
-    const hasAmt = amt > 0;
-    const amtUr = hasAmt ? numToUrdu(amt) : "",
-      amtHi = hasAmt ? hiNum(amt) : "";
-    const who = owner.ur ? owner.ur + " بھائی کے" : "اس";
-    const whoHi = owner.hi ? owner.hi + " भाई के" : "इस";
-    return {
-      ur:
-        who +
-        " موبائل نمبر، " +
-        mob.ur +
-        "، پر " +
-        (hasAmt ? amtUr + " روپے " : "") +
-        "ڈونیشن کا ایس ایم ایس بھیجا جا رہا ہے",
-      hi:
-        whoHi +
-        " मोबाइल नंबर, " +
-        mob.hi +
-        ", पर " +
-        (hasAmt ? amtHi + " रुपये " : "") +
-        "डोनेशन का एस एम एस भेजा जा रहा है",
-    };
-  }
-  function speakSmsCard(saved, force) {
-    const t = buildSmsSpeech(saved);
-    speakUrdu(t.ur, { hiText: t.hi, force: !!force });
-  }
-
-  // =============================================================
-  // SECTION 4: Confirmation Page ریویو کارڈ
-  // =============================================================
-  function showDetailsCard() {
-    if (document.getElementById("mab-view-card")) return;
-    if (window.__mabCardClosed) return;
-
-    let saved = {};
-    try {
-      saved = JSON.parse(sessionStorage.getItem("mab_captured_form") || "{}");
-    } catch (e) {}
-
-    const esc = (s) =>
-      String(s == null ? "" : s).replace(
-        /[&<>"']/g,
-        (c) =>
-          ({
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#39;",
-          }[c])
-      );
-    const join = (arr) => {
-      const p = arr.filter((x) => x && x !== "—");
-      return p.length ? p.join(", ") : "—";
-    };
-
-    const boxCode = (saved["Box Code"] || "—").toString().trim().toUpperCase();
-    const amount = saved["Amount"] || "—";
-    const mobile = saved["Mobile Number"] || "—";
-    const donation = join([
-      saved["Donation Type"],
-      saved["Donation Subtype"],
-      saved["Donation Purpose"],
-    ]);
-    const shop = join([saved["Shop Name"], saved["Shop Owner Name"]]);
-    const address = join([saved["Shop Address"], saved["Near By"]]);
-
-    if (!document.getElementById("mab-card-style")) {
-      const st = document.createElement("style");
-      st.id = "mab-card-style";
-      st.textContent = ` @keyframes mabBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(8px); } } @keyframes mabGlow { 0%,100% { box-shadow: 0 0 0 0 rgba(46,125,50,0.75); } 50% { box-shadow: 0 0 0 9px rgba(46,125,50,0); } } #mab-view-card * { box-sizing: border-box; } .mab-arrow { animation: mabBounce 1s ease-in-out infinite; } .mab-glow { animation: mabGlow 1.3s ease-out infinite; outline: 3px solid #2e7d32 !important; outline-offset: 2px; } `;
-      document.head.appendChild(st);
-    }
-
-    const row = (icon, label, value, big, last) => ` <div style="display:flex;gap:8px;align-items:center;padding:6px 2px;${ last ? "" : "border-bottom:1px solid #e3ebe0;" }"> <div style="width:26px;height:26px;flex-shrink:0;border-radius:7px;background:#eaf3e4;display:flex;align-items:center;justify-content:center;font-size:13px;">${icon}</div> <div style="flex:1;min-width:0;"> <div style="font-size:9.5px;font-weight:700;color:#6b7f66;letter-spacing:0.5px;text-transform:uppercase;line-height:1.1;">${label}</div> <div dir="ltr" style="margin-top:1px;font-size:${ big ? "15.5px" : "13.5px" };font-weight:${ big ? "800" : "600" };color:#1d2b1a;line-height:1.3;word-break:break-word;overflow-wrap:anywhere;text-align:left;">${esc( value )}</div> </div> </div>`;
-
-    const card = document.createElement("div");
-    card.id = "mab-view-card";
-    card.style.cssText =
-      'position:fixed;top:6px;left:2.5vw;width:95vw;max-width:540px;max-height:62vh;background:#ffffff;border-radius:14px;box-shadow:0 10px 32px rgba(0,0,0,0.45);z-index:2147483646;font-family:Roboto,"Segoe UI",Tahoma,sans-serif;color:#1d2b1a;overflow:hidden;display:flex;flex-direction:column;border:1px solid #2f6b1f;';
-
-    card.innerHTML = ` <div style="background:linear-gradient(135deg,#0d4a12 0%,#2f6b1f 55%,#5b8c3a 100%);color:#fff;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;"> <div style="display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;letter-spacing:0.3px;"> <span style="font-size:16px;">📋</span> Cross Check </div> <div style="display:flex;gap:6px;align-items:center;"> <button id="mab-btn-say" title="دوبارہ سنیں" style="background:rgba(0,0,0,0.25);border:0;color:#fff;font-size:14px;width:28px;height:28px;border-radius:7px;cursor:pointer;line-height:1;">🔁</button> <button id="mab-btn-mute" data-mab-mute title="آواز" style="background:rgba(0,0,0,0.25);border:0;color:#fff;font-size:14px;width:28px;height:28px;border-radius:7px;cursor:pointer;line-height:1;"></button> <button id="mab-btn-min" style="background:rgba(0,0,0,0.25);border:0;color:#fff;font-size:14px;width:28px;height:28px;border-radius:7px;cursor:pointer;line-height:1;">−</button> <button id="mab-btn-close" style="background:rgba(0,0,0,0.25);border:0;color:#fff;font-size:15px;width:28px;height:28px;border-radius:7px;cursor:pointer;line-height:1;">✕</button> </div> </div> <div id="mab-card-body" style="overflow-y:auto;flex:1;background:#f6f9f4;padding:8px;"> <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"> <div style="background:#e6f3e2;border:2px solid #2f6b1f;border-radius:10px;padding:6px 10px;"> <div style="font-size:9.5px;font-weight:800;color:#2f6b1f;letter-spacing:0.6px;">BOX CODE</div> <div style="margin-top:1px;font-size:20px;font-weight:900;color:#0d4a12;letter-spacing:1px;line-height:1.2;">${esc( boxCode )}</div> </div> <div style="background:#fff6df;border:2px solid #e08a00;border-radius:10px;padding:6px 10px;"> <div style="font-size:9.5px;font-weight:800;color:#a86400;letter-spacing:0.6px;">AMOUNT (PKR)</div> <div style="margin-top:1px;font-size:22px;font-weight:900;color:#c62828;line-height:1.2;">${esc( amount )}</div> </div> </div> <div style="margin-top:8px;background:#fff;border:1px solid #dbe6d6;border-radius:10px;padding:0 8px;"> ${row("📱", "Mobile Number", mobile, true)} ${row("🎁", "Donation (Type / Sub / Purpose)", donation, false)} ${row("🏪", "Shop / Owner Name", shop, false)} ${row("📍", "Address / Near By", address, false, true)} </div> <div dir="rtl" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff8e1;border:1.5px dashed #e08a00;border-radius:10px;padding:5px 10px;font-size:12px;font-weight:700;color:#5a3d00;line-height:1.5;"> <span>ریکارڈ چیک کر کے تسلی کریں،<br>پھر نیچے <b style="color:#2f6b1f;">Confirm &amp; Print</b> دبائیں</span> <svg class="mab-arrow" width="20" height="26" viewBox="0 0 24 28" fill="none" stroke="#2f6b1f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 2v20"/><path d="M4 15l8 9 8-9"/></svg> </div> <button id="mab-btn-fix" style="margin-top:7px;width:100%;background:#fff;border:1.5px solid #2f6b1f;color:#2f6b1f;border-radius:9px;padding:6px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;">✏️ ڈیٹا غلط ہے؟ سپروائزر کو واٹس ایپ بھیجیں</button> </div> `;
-
-    document.body.appendChild(card);
-
-    const close = () => {
-      window.__mabCardClosed = true;
-      card.remove();
-    };
-    document.getElementById("mab-btn-close").addEventListener("click", close);
-    document
-      .getElementById("mab-btn-fix")
-      .addEventListener("click", () => askCorrection(boxCode, saved));
-
-    let isMin = false;
-    const body = document.getElementById("mab-card-body");
-    const minBtn = document.getElementById("mab-btn-min");
-    minBtn.addEventListener("click", () => {
-      isMin = !isMin;
-      body.style.display = isMin ? "none" : "block";
-      minBtn.textContent = isMin ? "+" : "−";
-    });
-
-    document
-      .getElementById("mab-btn-say")
-      .addEventListener("click", () => speakSmsCard(saved, true));
-    document
-      .getElementById("mab-btn-mute")
-      .addEventListener("click", toggleVoice);
-    paintAllSnd();
-
-    // کارڈ کھلتے ہی خود بولے؛ اگر براؤزر نے بلا ٹچ آواز روک دی تو پہلی ٹچ پر بولے
-    if (!window.__mabCardSpoken) {
-      window.__mabCardSpoken = true;
-      try {
-        speakSmsCard(saved, false);
-      } catch (e) {}
-      setTimeout(() => {
-        let started = false;
-        try {
-          started =
-            window.speechSynthesis.speaking || window.speechSynthesis.pending;
-        } catch (e) {}
-        if (!started && voiceOn()) {
-          const once = () => {
-            speakSmsCard(saved, false);
-          };
-          document.addEventListener("pointerdown", once, {
-            once: true,
-            capture: true,
-          });
-        }
-      }, 500);
-    }
-
-    markConfirmButton();
-  }
-
-  // Confirm & Print بٹن پر ہری چمک اور اس کے اوپر تیر
-  function markConfirmButton() {
-    if (window.__mabMarkTimer) return;
-    const findBtn = () =>
-      [
-        ...document.querySelectorAll(
-          'button, a, input[type="button"], input[type="submit"]'
-        ),
-      ].find((b) => {
-        const t = norm(b.innerText || b.textContent || b.value || "");
-        return (
-          t.includes("confirm") &&
-          t.includes("print") &&
-          (b.offsetWidth > 0 || b.offsetHeight > 0)
+  function askBoxAndAmount(lookup) {
+    const LARGE = 10000,
+      MAXDIGITS = 7;
+    return new Promise((resolve) => {
+      const esc = (s) =>
+        String(s == null ? "" : s).replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c])
         );
-      });
-
-    window.__mabMarkTimer = setInterval(() => {
-      const btn = findBtn();
-      let arrow = document.getElementById("mab-confirm-arrow");
-      if (!btn) {
-        if (arrow) arrow.remove();
-        return;
+      const OK_LABEL = "✔ ٹھیک ہے — Process کریں ➜";
+      injectCardStyle(); // تیر کی حرکت (mab-arrow) کا اسٹائل
+      if (!document.getElementById("mab-combo-style")) {
+        const st = document.createElement("style");
+        st.id = "mab-combo-style";
+        st.textContent = `
+          #mab-dlg-overlay.mab-combo{padding:6px 6px 0;align-items:flex-start;overflow:hidden}
+          #mab-dlg-overlay.mab-combo .mab-dlg{max-width:480px;max-height:100%;display:flex;flex-direction:column}
+          .mab-combo .mab-dlg-head{padding:6px 10px;font-size:14px;flex-shrink:0}
+          .mab-combo .mab-snd{width:30px;height:30px;font-size:14px;border-radius:8px}
+          .mab-combo .mab-dlg-body{padding:0;overflow-y:auto;flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+          .mab-combo .mab-pad{padding:8px 10px 2px}
+          .mab-combo .mab-dlg-label{font-size:11.5px;margin-bottom:3px}
+          .mab-combo .mab-dlg-input{font-size:22px;padding:5px 10px;border-radius:10px}
+          .mab-combo .mab-dlg-hint{margin-top:2px;font-size:11.5px;min-height:0}
+          .mab-combo .mab-dlg-words{margin-top:4px;padding:2px 10px;font-size:14px;min-height:0;line-height:1.5}
+          .mab-combo .mab-dlg-warn{margin-top:5px;padding:5px 8px;font-size:12px}
+          .mab-combo .mab-chips{gap:5px;margin-top:6px}
+          .mab-combo .mab-chip{padding:5px 0;font-size:14px;border-radius:9px}
+          .mab-combo .mab-btn{padding:9px 0;font-size:14px;border-radius:11px}
+          .mab-combo .mab-sticky-act{position:sticky;bottom:0;z-index:3;margin:0;padding:6px 10px;background:#f6f9f4;border-top:1px solid #dbe6d6}
+          @media (max-height:640px){.mab-combo .mab-dlg-input{font-size:19px;padding:4px 8px}.mab-combo .mab-chip{padding:5px 0}}
+          .mab-combo .mab-grp{padding:6px 8px;margin-bottom:6px}
+          .mab-combo .mab-grp-title{margin-bottom:4px}
+          .mab-combo .mab-new{font-size:15px;padding:7px 9px}
+          .mab-combo .mab-old{padding:4px 8px;font-size:13px;margin-bottom:4px}
+          @media (max-width:340px){.mab-combo #mab-bc-input{width:122px !important;font-size:19px}}
+          /* ===== v10.49 پریمیم / ریسپانسیو ===== */
+          #mab-dlg-overlay.mab-combo{max-width:100vw;overflow:hidden;padding:max(8px,env(safe-area-inset-top)) 8px 0;background:rgba(6,18,8,.62);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+          #mab-dlg-overlay.mab-combo *{min-width:0;max-width:100%}
+          #mab-dlg-overlay.mab-combo .mab-dlg{width:100%;max-width:480px;border:0;border-radius:20px;background:#f4f8f1;box-shadow:0 22px 50px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.10)}
+          .mab-combo .mab-dlg-head{padding:9px 12px;gap:8px;flex-wrap:nowrap;background:linear-gradient(135deg,#093510 0%,#1d5a1d 55%,#3d7b2b 100%);box-shadow:0 2px 10px rgba(0,0,0,.22)}
+          .mab-combo .mab-dlg-head>span{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:15px;letter-spacing:.2px}
+          .mab-combo .mab-snd{flex:0 0 auto;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.14);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+          .mab-combo .mab-snd+.mab-snd{margin-inline-start:6px}
+          .mab-combo .mab-pad{padding:10px 12px 8px}
+          .mab-combo #mab-bc-input{border-radius:12px;font-size:22px;box-shadow:0 1px 3px rgba(20,60,20,.12)}
+          .mab-combo #mab-info{background:#fff !important;border:0 !important;border-radius:14px !important;padding:2px 12px !important;box-shadow:0 2px 10px rgba(30,70,30,.12),0 0 0 1.5px #cfe0c8}
+          .mab-combo .mab-dlg-input{border-width:1.5px;border-radius:12px;box-shadow:0 1px 3px rgba(20,60,20,.10)}
+          .mab-combo .mab-dlg-input:focus{border-color:#2e7d32;box-shadow:0 0 0 3px rgba(46,125,50,.18)}
+          .mab-combo .mab-dlg-words{background:#fff;border:1px dashed #a9c8a0;border-radius:12px;color:#256b24}
+          .mab-combo .mab-chips{display:grid !important;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:8px}
+          .mab-combo .mab-chip{flex:none;padding:7px 0;font-size:14px;border-radius:11px;border:1.5px solid #3b7a2a;background:linear-gradient(180deg,#fff,#eef5ea);box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .08s}
+          .mab-combo .mab-chip:active{transform:scale(.95);background:#dcecd6}
+          .mab-combo .mab-btn{transition:transform .08s,filter .15s}
+          .mab-combo .mab-btn:active:not(:disabled){transform:scale(.97);filter:brightness(.95)}
+          .mab-combo .mab-btn-ok{background:linear-gradient(135deg,#276b1c,#4a9029);box-shadow:0 3px 8px rgba(30,90,30,.35)}
+          .mab-combo .mab-btn-ok:disabled{background:#b9c7b4;box-shadow:none}
+          .mab-combo #mab-chk-hint{border-radius:12px !important}
+          .mab-combo #mab-chk-hint .mab-dlg-actions{display:flex;flex-direction:row;gap:6px;margin-top:6px}
+          .mab-combo #mab-chk-hint .mab-btn-cancel{flex:0 0 30%}
+          .mab-combo #mab-chk-hint .mab-btn-ok{flex:1 1 auto;white-space:normal;line-height:1.35}
+          .mab-combo .mab-state{font-size:13px;font-weight:700;padding:8px 2px;line-height:1.6;text-align:right}
+          .mab-combo .mab-state-load{color:#8a4b00}
+          .mab-combo .mab-state-err{color:#c62828}
+          @media (max-width:360px){.mab-combo .mab-chip{font-size:13px;padding:6px 0}.mab-combo .mab-dlg-head>span{font-size:13.5px}}`;
+        document.head.appendChild(st);
       }
-      btn.classList.add("mab-glow");
-      if (!arrow) {
-        arrow = document.createElement("div");
-        arrow.id = "mab-confirm-arrow";
-        arrow.style.cssText =
-          "position:absolute;z-index:2147483645;pointer-events:none;display:flex;flex-direction:column;align-items:center;";
-        arrow.innerHTML =
-          '<svg class="mab-arrow" width="34" height="40" viewBox="0 0 24 28" fill="none" stroke="#2e7d32" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M4 15l8 9 8-9"/></svg>';
-        document.body.appendChild(arrow);
-      }
-      const r = btn.getBoundingClientRect();
-      arrow.style.left = r.left + window.scrollX + r.width / 2 - 17 + "px";
-      arrow.style.top = r.top + window.scrollY - 46 + "px";
-    }, 400);
-  }
-
-  // =============================================================
-  // سادہ کیلکولیٹر: 🧮 بٹن سے Show / Hide
-  // =============================================================
-  const CALC_OPEN_KEY = "mab_calc_open";
-  function calcEval(expr) {
-    const e = expr.replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-");
-    if (!e || !/^[0-9+\-*/.\s]+$/.test(e)) return null;
-    const clean = e.replace(/[+\-*/.]+$/, ""); // آخر میں لٹکا ہوا نشان ہٹا دیں
-    if (!clean) return null;
-    try {
-      const v = Function('"use strict";return (' + clean + ")")();
-      return typeof v === "number" && isFinite(v)
-        ? Math.round(v * 1e8) / 1e8
-        : null;
-    } catch (err) {
-      return null;
-    }
-  }
-
-  // پاکستانی کرنسی نوٹ گننے کا کیش کاؤنٹر
-  const CC_KEY = "mab_cc_counts",
-    CC_TAB_KEY = "mab_calc_tab";
-  const CC_NOTES = [10, 20, 50, 100, 500, 1000, 5000];
-  function ccHtml() {
-    const row = (d) =>
-      '<div style="display:flex;align-items:center;gap:6px;margin-top:6px;">' +
-      '<div style="width:56px;font-size:18px;font-weight:900;color:#0d4a12;text-align:center;background:' +
-      (d >= 10 ? "#dcedc8" : "#ffe0b2") +
-      ';border-radius:8px;padding:6px 0;">' +
-      d +
-      "</div>" +
-      '<button type="button" data-cc="m' +
-      d +
-      '" style="width:44px;height:44px;border:1.5px solid #c5d6c0;border-radius:10px;background:#fff;font-size:24px;font-weight:800;color:#c62828;cursor:pointer;touch-action:manipulation;">−</button>' +
-      '<input type="text" inputmode="numeric" data-cc-in="' +
-      d +
-      '" enterkeyhint="next" placeholder="0" autocomplete="off" style="flex:1;min-width:0;height:44px;text-align:center;font-size:22px;font-weight:800;border:2px solid #b9cdb3;border-radius:10px;background:#fff;color:#0d4a12;user-select:text;-webkit-user-select:text;">' +
-      '<button type="button" data-cc="p' +
-      d +
-      '" style="width:44px;height:44px;border:1.5px solid #c5d6c0;border-radius:10px;background:#fff;font-size:24px;font-weight:800;color:#2e7d32;cursor:pointer;touch-action:manipulation;">+</button>' +
-      '<div data-cc-sub="' +
-      d +
-      '" dir="ltr" style="width:78px;text-align:right;font-size:13px;font-weight:700;color:#44533f;">0</div></div>';
-    const head = (t) =>
-      '<div style="margin-top:10px;font-size:12px;font-weight:800;color:#2f6b1f;">' +
-      t +
-      "</div>";
-    return (
-      '<div id="mab-cc-sticky" style="position:sticky;top:60px;z-index:2;background:#fff;border:1.5px solid #2f6b1f;border-radius:10px;padding:6px 10px;text-align:right;">' +
-      '<div id="mab-cc-pieces" style="font-size:12px;color:#6b7f66;">0 نوٹ</div>' +
-      '<div id="mab-cc-total" dir="ltr" style="font-size:32px;font-weight:900;color:#c62828;line-height:1.2;">0</div>' +
-      '<div id="mab-cc-words" dir="rtl" style="font-size:13px;font-weight:700;color:#2f6b1f;min-height:18px;"></div>' +
-      '<div style="display:flex;gap:8px;margin-top:6px;">' +
-      '<button type="button" data-cc="up" style="flex:1;height:38px;border:1.5px solid #2f6b1f;border-radius:10px;background:#e6f3e2;color:#2f6b1f;font-size:14px;font-weight:800;cursor:pointer;">⬆ اوپر والا خانہ</button>' +
-      '<button type="button" data-cc="down" style="flex:1;height:38px;border:1.5px solid #2f6b1f;border-radius:10px;background:#e6f3e2;color:#2f6b1f;font-size:14px;font-weight:800;cursor:pointer;">⬇ نیچے والا خانہ</button></div></div>' +
-      head("نوٹ / Notes") +
-      CC_NOTES.map(row).join("") +
-      '<div style="display:flex;gap:8px;margin-top:10px;">' +
-      '<button type="button" data-cc="clear" style="flex:0 0 32%;height:44px;border:0;border-radius:12px;background:#ffe0b2;color:#a86400;font-weight:800;font-size:14px;cursor:pointer;">🗑 صاف</button>' +
-      '<button type="button" data-cc="use" id="mab-cc-use" style="flex:1;display:none;height:44px;border:0;border-radius:12px;background:#e08a00;color:#fff;font-weight:800;font-size:15px;cursor:pointer;">رقم میں ڈالیں ⬆</button></div>'
-    );
-  }
-  function initCalc() {
-    if (!document.body || document.getElementById("mab-calc-root")) return;
-    const root = document.createElement("div");
-    root.id = "mab-calc-root";
-    root.style.cssText =
-      'position:fixed;left:12px;bottom:85px;z-index:2147483647;font-family:Roboto,"Segoe UI",Tahoma,sans-serif;direction:ltr;user-select:none;-webkit-user-select:none;';
-    const keys = [
-      "C",
-      "⌫",
-      "÷",
-      "×",
-      "7",
-      "8",
-      "9",
-      "−",
-      "4",
-      "5",
-      "6",
-      "+",
-      "1",
-      "2",
-      "3",
-      "=",
-      "0",
-      "00",
-      ".",
-      "",
-    ];
-    const kbtn = (k) => {
-      if (!k) return "";
-      const op = /[÷×−+]/.test(k),
-        eq = k === "=",
-        ctl = k === "C" || k === "⌫";
-      const bg = eq
-        ? "#2e7d32;color:#fff"
-        : op
-        ? "#dcedc8;color:#1b5e20"
-        : ctl
-        ? "#ffe0b2;color:#a86400"
-        : "#fff;color:#1d2b1a";
-      return (
-        '<button type="button" data-k="' +
-        k +
-        '" style="' +
-        (eq ? "grid-row:span 2;" : "") +
-        "height:min(8vh,56px);border:1.5px solid #c5d6c0;border-radius:12px;font-size:24px;font-weight:800;background:" +
-        bg +
-        ';cursor:pointer;touch-action:manipulation;">' +
-        k +
-        "</button>"
-      );
-    };
-    root.innerHTML =
-      '<div id="mab-calc-panel" style="display:none;position:fixed;left:2vw;width:96vw;bottom:155px;max-height:62vh;overflow-y:auto;flex-direction:column;box-sizing:border-box;background:#f6f9f4;border:2px solid #2f6b1f;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);">' +
-      '<div data-grip="top" title="کھینچ کر سائز بدلیں" style="position:sticky;top:0;z-index:5;flex-shrink:0;height:22px;display:flex;align-items:center;justify-content:center;background:#2f6b1f;cursor:ns-resize;touch-action:none;"><span style="width:56px;height:5px;border-radius:3px;background:rgba(255,255,255,.85);"></span></div>' +
-      '<div style="position:sticky;top:22px;z-index:3;background:linear-gradient(135deg,#0d4a12,#2f6b1f);color:#fff;padding:6px 10px;font-weight:800;font-size:15px;display:flex;justify-content:space-between;align-items:center;"><span>🧮 Calculator</span><span style="display:flex;gap:6px;align-items:center;"><button type="button" data-size="1" id="mab-calc-size" style="background:rgba(0,0,0,.25);border:0;color:#fff;height:26px;padding:0 9px;border-radius:7px;font-size:12px;font-weight:800;cursor:pointer;"></button><button type="button" data-k="hide" style="background:rgba(0,0,0,.25);border:0;color:#fff;width:26px;height:26px;border-radius:7px;font-size:14px;cursor:pointer;">✕</button></span></div>' +
-      '<div style="display:flex;gap:6px;padding:8px 8px 0;">' +
-      '<button type="button" data-tab="calc" style="flex:1;height:38px;border:1.5px solid #2f6b1f;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;">🧮 Calculator</button>' +
-      '<button type="button" data-tab="cash" style="flex:1;height:38px;border:1.5px solid #2f6b1f;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;">💵 Cash Counter</button>' +
-      "</div>" +
-      '<div id="mab-tab-calc" style="padding:8px;">' +
-      '<div style="background:#fff;border:1.5px solid #2f6b1f;border-radius:10px;padding:6px 10px;text-align:right;">' +
-      '<div id="mab-calc-expr" style="min-height:18px;font-size:13px;color:#6b7f66;word-break:break-all;"></div>' +
-      '<div id="mab-calc-res" style="font-size:34px;font-weight:900;color:#0d4a12;line-height:1.2;word-break:break-all;">0</div>' +
-      "</div>" +
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;">' +
-      keys.map(kbtn).join("") +
-      "</div>" +
-      '<button type="button" data-k="use" id="mab-calc-use" style="display:none;margin-top:8px;width:100%;height:44px;border:0;border-radius:12px;background:#e08a00;color:#fff;font-weight:800;font-size:15px;cursor:pointer;">رقم میں ڈالیں ⬆</button>' +
-      "</div>" +
-      '<div id="mab-tab-cash" style="display:none;padding:8px;">' +
-      ccHtml() +
-      "</div>" +
-      '<div data-grip="bottom" title="کھینچ کر سائز بدلیں" style="position:sticky;bottom:0;z-index:5;flex-shrink:0;height:22px;display:flex;align-items:center;justify-content:center;background:#2f6b1f;cursor:ns-resize;touch-action:none;margin-top:auto;"><span style="width:56px;height:5px;border-radius:3px;background:rgba(255,255,255,.85);"></span></div>' +
-      "</div>" +
-      '<button type="button" id="mab-calc-toggle" title="Calculator" style="width:46px;height:46px;border-radius:50%;border:2px solid #fff;background:#2e7d32;color:#fff;font-size:22px;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer;line-height:1;touch-action:none;">🧮</button>';
-    document.body.appendChild(root);
-
-    const panel = root.querySelector("#mab-calc-panel");
-    const exprEl = root.querySelector("#mab-calc-expr");
-    const resEl = root.querySelector("#mab-calc-res");
-    const useBtn = root.querySelector("#mab-calc-use");
-    let expr = "",
-      justEq = false;
-    const fmt = (v) =>
-      v === null
-        ? ""
-        : Math.abs(v) >= 1e15
-        ? String(v)
-        : v.toLocaleString("en-US", { maximumFractionDigits: 8 });
-    const refresh = () => {
-      exprEl.textContent = expr;
-      const v = calcEval(expr);
-      resEl.textContent = v === null ? (expr ? "…" : "0") : fmt(v);
-      const amIn = document.getElementById("mab-am-input");
-      useBtn.style.display = amIn && v !== null && v > 0 ? "block" : "none";
-    };
-    const setOpen = (o) => {
-      panel.style.display = o ? "flex" : "none";
-      lsSet(CALC_OPEN_KEY, o ? "1" : "0");
-      if (o) refresh();
-    };
-    // 🧮 بٹن کو انگلی سے کھینچ کر کہیں بھی رکھ سکتے ہیں (جگہ یاد رہتی ہے)
-    const tg = root.querySelector("#mab-calc-toggle");
-    const POS_KEY = "mab_calc_pos";
-    const applyPos = (x, y) => {
-      const nx = Math.max(0, Math.min(window.innerWidth - 46, x)),
-        ny = Math.max(0, Math.min(window.innerHeight - 46, y));
-      root.style.left = nx + "px";
-      root.style.top = ny + "px";
-      root.style.bottom = "auto";
-      return { x: nx, y: ny };
-    };
-    try {
-      const sp = JSON.parse(lsGet(POS_KEY, "null"));
-      if (sp && typeof sp.x === "number") applyPos(sp.x, sp.y);
-    } catch (e) {}
-    let drag = null,
-      moved = false;
-    tg.addEventListener("pointerdown", (e) => {
-      const r = root.getBoundingClientRect();
-      drag = {
-        dx: e.clientX - r.left,
-        dy: e.clientY - r.top,
-        sx: e.clientX,
-        sy: e.clientY,
-      };
-      moved = false;
-      try {
-        tg.setPointerCapture(e.pointerId);
-      } catch (err) {}
-    });
-    tg.addEventListener("pointermove", (e) => {
-      if (!drag) return;
-      if (!moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6)
-        moved = true;
-      if (moved) {
-        e.preventDefault();
-        applyPos(e.clientX - drag.dx, e.clientY - drag.dy);
-      }
-    });
-    const endDrag = (e) => {
-      if (!drag) return;
-      if (moved) {
-        const r = root.getBoundingClientRect();
-        lsSet(
-          POS_KEY,
-          JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) })
-        );
-      } else setOpen(panel.style.display === "none");
-      drag = null;
-      moved = false;
-    };
-    tg.addEventListener("pointerup", endDrag);
-    tg.addEventListener("pointercancel", () => {
-      drag = null;
-      moved = false;
-    });
-    window.addEventListener("resize", () => {
-      if (root.style.top) {
-        const r = root.getBoundingClientRect();
-        applyPos(r.left, r.top);
-      }
-    });
-    root.addEventListener("click", (e) => {
-      const b = e.target.closest("[data-k]");
-      if (!b) return;
-      const k = b.dataset.k;
-      if (k === "hide") return setOpen(false);
-      if (k === "C") {
-        expr = "";
-        justEq = false;
-      } else if (k === "⌫") {
-        expr = expr.slice(0, -1);
-      } else if (k === "=") {
-        const v = calcEval(expr);
-        if (v !== null) {
-          expr = String(v);
-          justEq = true;
-        }
-      } else if (k === "use") {
-        const v = calcEval(expr),
-          amIn = document.getElementById("mab-am-input");
-        if (v !== null && v > 0 && amIn) {
-          amIn.value = String(Math.round(v));
-          amIn.dispatchEvent(new Event("input", { bubbles: true }));
-        }
-        return;
-      } else {
-        const isOp = /[÷×−+]/.test(k);
-        if (justEq && !isOp) expr = ""; // نتیجے کے بعد نیا عدد لکھیں تو نئی گنتی
-        justEq = false;
-        const last = expr.slice(-1);
-        if (isOp) {
-          if (!expr && k !== "−") return;
-          if (/[÷×−+]/.test(last)) expr = expr.slice(0, -1);
-        }
-        if (k === ".") {
-          const seg = expr.split(/[÷×−+]/).pop();
-          if (seg.includes(".")) return;
-          if (!seg) expr += "0";
-        }
-        expr += k;
-      }
-      refresh();
-    });
-    // ---- کیش کاؤنٹر ----
-    let cc = {};
-    try {
-      cc = JSON.parse(lsGet(CC_KEY, "{}")) || {};
-    } catch (e) {
-      cc = {};
-    }
-    const ccAll = CC_NOTES.slice();
-    let ccLast = null;
-    const ccInputs = () => [...root.querySelectorAll("[data-cc-in]")];
-    root.addEventListener("focusin", (e) => {
-      const i = e.target.closest && e.target.closest("[data-cc-in]");
-      if (i) ccLast = i;
-    });
-    // اوپر/نیچے والے بٹن دبانے پر کی بورڈ بند نہ ہو
-    root.addEventListener("mousedown", (e) => {
-      if (e.target.closest('[data-cc="up"],[data-cc="down"]'))
-        e.preventDefault();
-    });
-    const ccMove = (dir, from) => {
-      const L = ccInputs();
-      let i = L.indexOf(from || ccLast);
-      if (i < 0) i = dir > 0 ? -1 : L.length;
-      const n = L[i + dir];
-      if (!n) {
-        if (dir > 0 && document.activeElement && document.activeElement.blur)
-          document.activeElement.blur();
-        return;
-      }
-      try {
-        n.focus({ preventScroll: true });
-      } catch (e) {
-        n.focus();
-      }
-      try {
-        n.select();
-      } catch (e) {}
-      ccReveal(n);
-    };
-    // خانہ چھپا ہو تو ہی پینل کے اندر ذرا سا سکرول (پینل خود اپنی جگہ جما رہتا ہے)
-    const ccReveal = (n) => {
-      try {
-        const pr = panel.getBoundingClientRect(),
-          vv = window.visualViewport,
-          st = root.querySelector("#mab-cc-sticky");
-        const bottomLimit =
-          Math.min(
-            pr.bottom - 26,
-            vv ? vv.offsetTop + vv.height : window.innerHeight
-          ) - 6;
-        const topLimit =
-          (st ? st.getBoundingClientRect().bottom : pr.top + 60) + 6;
-        const r = n.getBoundingClientRect();
-        if (r.top < topLimit) panel.scrollTop -= topLimit - r.top;
-        else if (r.bottom > bottomLimit)
-          panel.scrollTop += r.bottom - bottomLimit;
-      } catch (e) {}
-    };
-    // کی بورڈ کا Enter: اگلا (نیچے والا) خانہ
-    root.addEventListener("keydown", (e) => {
-      const i = e.target.closest && e.target.closest("[data-cc-in]");
-      if (i && (e.key === "Enter" || e.key === "Next")) {
-        e.preventDefault();
-        ccMove(1, i);
-      }
-    });
-    const ccUse = root.querySelector("#mab-cc-use");
-    const ccRefresh = () => {
-      let tot = 0,
-        notes = 0;
-      ccAll.forEach((d) => {
-        const n = Math.max(0, parseInt(cc[d], 10) || 0);
-        tot += n * d;
-        notes += n;
-        const sub = root.querySelector('[data-cc-sub="' + d + '"]');
-        if (sub) sub.textContent = n ? (n * d).toLocaleString("en-US") : "0";
-        const inp = root.querySelector('[data-cc-in="' + d + '"]');
-        if (inp && document.activeElement !== inp)
-          inp.value = n ? String(n) : "";
-      });
-      root.querySelector("#mab-cc-total").textContent =
-        tot.toLocaleString("en-US");
-      root.querySelector("#mab-cc-pieces").textContent = notes + " نوٹ";
-      root.querySelector("#mab-cc-words").textContent =
-        tot > 0 ? numToUrdu(tot) + " روپے" : "";
-      ccUse.style.display =
-        document.getElementById("mab-am-input") && tot > 0 ? "block" : "none";
-      ccUse.dataset.total = String(tot);
-      lsSet(CC_KEY, JSON.stringify(cc));
-    };
-    const setTab = (t) => {
-      root.querySelector("#mab-tab-calc").style.display =
-        t === "cash" ? "none" : "block";
-      root.querySelector("#mab-tab-cash").style.display =
-        t === "cash" ? "block" : "none";
-      root.querySelectorAll("[data-tab]").forEach((b) => {
-        const on = b.dataset.tab === t;
-        b.style.background = on ? "#2e7d32" : "#fff";
-        b.style.color = on ? "#fff" : "#2f6b1f";
-      });
-      lsSet(CC_TAB_KEY, t);
-      if (t === "cash") ccRefresh();
-      else refresh();
-    };
-    root.addEventListener("click", (e) => {
-      const tb = e.target.closest("[data-tab]");
-      if (tb) return setTab(tb.dataset.tab);
-      const b = e.target.closest("[data-cc]");
-      if (!b) return;
-      const c = b.dataset.cc;
-      if (c === "clear") {
-        cc = {};
-      } else if (c === "up" || c === "down") {
-        ccMove(c === "down" ? 1 : -1, null);
-        return;
-      } else if (c === "use") {
-        const amIn = document.getElementById("mab-am-input"),
-          v = parseInt(b.dataset.total, 10) || 0;
-        if (amIn && v > 0) {
-          amIn.value = String(v);
-          amIn.dispatchEvent(new Event("input", { bubbles: true }));
-        }
-        return;
-      } else {
-        const d = parseInt(c.slice(1), 10),
-          n = Math.max(0, parseInt(cc[d], 10) || 0);
-        cc[d] = c[0] === "p" ? Math.min(99999, n + 1) : Math.max(0, n - 1);
-      }
-      ccRefresh();
-    });
-    root.addEventListener("input", (e) => {
-      const i = e.target.closest("[data-cc-in]");
-      if (!i) return;
-      const d = parseInt(i.dataset.ccIn, 10),
-        v = i.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 5);
-      if (i.value !== v) i.value = v;
-      cc[d] = v ? parseInt(v, 10) : 0;
-      ccRefresh();
-    });
-    setTab(lsGet(CC_TAB_KEY, "calc") === "cash" ? "cash" : "calc");
-    // ---- پینل کا سائز: چھوٹا / پوری اسکرین / اوپر نیچے کے کنارے کھینچ کر ----
-    const SZ_KEY = "mab_calc_size",
-      GEO_KEY = "mab_calc_geom",
-      MINH = 180;
-    const SIZES = {
-      normal: {
-        left: "2vw",
-        width: "96vw",
-        top: "auto",
-        bottom: "155px",
-        maxHeight: "62vh",
-        borderRadius: "16px",
-      },
-      full: {
-        left: "0",
-        width: "100vw",
-        top: "0",
-        bottom: "0",
-        maxHeight: "none",
-        borderRadius: "0",
-      },
-    };
-    const sizeBtn = root.querySelector("#mab-calc-size");
-    const clampGeom = (t, b) => {
-      const H = window.innerHeight;
-      t = Math.max(0, Math.min(t, H - MINH));
-      b = Math.max(0, Math.min(b, H - MINH));
-      if (H - t - b < MINH) b = Math.max(0, H - t - MINH);
-      return { t: Math.round(t), b: Math.round(b) };
-    };
-    const applySize = (m) => {
-      let g = null;
-      if (m === "custom") {
-        try {
-          g = JSON.parse(lsGet(GEO_KEY, "null"));
-        } catch (e) {}
-        if (!g) m = "normal";
-      }
-      if (m === "custom") {
-        const c = clampGeom(g.t, g.b);
-        Object.assign(panel.style, {
-          left: g.fw ? "0" : "2vw",
-          width: g.fw ? "100vw" : "96vw",
-          top: c.t + "px",
-          bottom: c.b + "px",
-          maxHeight: "none",
-          borderRadius: g.fw ? "0" : "16px",
-        });
-      } else {
-        if (!SIZES[m]) m = "normal";
-        Object.assign(panel.style, SIZES[m]);
-      }
-      sizeBtn.textContent = m === "full" ? "⤡ چھوٹا" : "⤢ بڑا";
-      lsSet(SZ_KEY, m);
-    };
-    sizeBtn.addEventListener("click", () =>
-      applySize(/⤡/.test(sizeBtn.textContent) ? "normal" : "full")
-    );
-    // اوپر / نیچے کی پٹی کو انگلی سے کھینچ کر پینل لمبا یا چھوٹا کریں
-    let gd = null;
-    panel.querySelectorAll("[data-grip]").forEach((gr) => {
-      gr.addEventListener("pointerdown", (e) => {
-        const r = panel.getBoundingClientRect();
-        gd = {
-          w: gr.dataset.grip,
-          y: e.clientY,
-          top: r.top,
-          bottom: window.innerHeight - r.bottom,
-          fw: panel.style.width === "100vw",
-        };
-        Object.assign(panel.style, {
-          top: Math.round(r.top) + "px",
-          bottom: Math.round(gd.bottom) + "px",
-          maxHeight: "none",
-        });
-        try {
-          gr.setPointerCapture(e.pointerId);
-        } catch (err) {}
-        e.preventDefault();
-      });
-      gr.addEventListener("pointermove", (e) => {
-        if (!gd || gd.w !== gr.dataset.grip) return;
-        e.preventDefault();
-        const dy = e.clientY - gd.y;
-        if (gd.w === "top")
-          panel.style.top = clampGeom(gd.top + dy, gd.bottom).t + "px";
-        else panel.style.bottom = clampGeom(gd.top, gd.bottom - dy).b + "px";
-      });
-      const end = () => {
-        if (!gd) return;
-        const r = panel.getBoundingClientRect(),
-          c = clampGeom(r.top, window.innerHeight - r.bottom);
-        lsSet(GEO_KEY, JSON.stringify({ t: c.t, b: c.b, fw: gd.fw }));
-        lsSet(SZ_KEY, "custom");
-        sizeBtn.textContent = gd.fw ? "⤡ چھوٹا" : "⤢ بڑا";
-        gd = null;
-      };
-      gr.addEventListener("pointerup", end);
-      gr.addEventListener("pointercancel", end);
-    });
-    window.addEventListener("resize", () => {
-      if (lsGet(SZ_KEY, "normal") === "custom") applySize("custom");
-    });
-    applySize(lsGet(SZ_KEY, "normal"));
-    window.__mabCalcFront = () => {
-      if (root.parentNode && document.body.lastElementChild !== root)
-        document.body.appendChild(root);
-      refresh();
-      ccRefresh();
-    };
-    if (lsGet(CALC_OPEN_KEY, "0") === "1") setOpen(true);
-  }
-
-  // =============================================================
-  // SECTION 5: مانیٹر
-  // =============================================================
-  function checkState() {
-    const url = norm(location.href);
-    if (url.includes("confirmation")) {
-      const fillBtn = document.getElementById("oc-fill-btn");
-      if (fillBtn) fillBtn.style.display = "none";
-      showDetailsCard();
-    } else {
-      addButton();
-    }
-  }
-
-  // کراس چیک پیج: جیسے ہی صفحہ کھلے فوراً کارڈ اور آواز (انتظار کے بغیر)
-  const quickConfirm = () => {
-    if (
-      norm(location.href).includes("confirmation") &&
-      document.body &&
-      !document.getElementById("mab-view-card")
-    ) {
-      try {
-        showDetailsCard();
-      } catch (e) {}
-    }
-  };
-  quickConfirm();
-  document.addEventListener("DOMContentLoaded", quickConfirm);
-  addButton();
-  let obsPending = false;
-  new MutationObserver(() => {
-    if (obsPending) return;
-    obsPending = true;
-    setTimeout(() => {
-      obsPending = false;
-      addButton();
-      quickConfirm();
-    }, 500);
-  }).observe(document.documentElement, { childList: true, subtree: true });
-  setInterval(() => {
-    checkState();
-    initCalc();
-  }, 1500);
-  initCalc();
-})();
+      const ov = openDialog(
+        '📦 Box Code / رقم',
+        ` <div class="mab-pad"><span id="mab-bc-count" style="display:none"></span><div class="mab-toprow" style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:center;"><input id="mab-bc-input" class="mab-dlg-input" type="text" inputmode="email" lang="en" dir="ltr" enterkeyhint="next" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="ABC123" style="text-transform:uppercase;letter-spacing:3px;text-align:center;width:132px;"><div id="mab-top-mob" style="min-width:0;"></div></div>
+        <div id="mab-bc-hint" class="mab-dlg-hint" style="display:none;"></div>
+        <div id="mab-info" style="display:none;margin-top:6px;background:#fff;border:1.5px solid #2f6b1f;border-radius:10px;padding:2px 10px;"></div>
+        <div id="mab-corr-host" style="display:none;margin-top:6px;"></div>
+        <span id="mab-am-fmt" style="display:none"></span>
+        <input id="mab-am-input" class="mab-dlg-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="${MAXDIGITS}" autocomplete="off" placeholder="یہاں رقم لکھیں" style="text-align:center;margin-top:8px;">
+        <div id="mab-am-hint" class="mab-dlg-hint">صرف اعداد، 0 سے زیادہ</div>
+        <div id="mab-am-words" class="mab-dlg-words" dir="rtl">—</div>
+        <div id="mab-am-warn" class="mab-dlg-warn" style="display:none;">⚠️ بڑی رقم ہے، ایک بار پھر چیک کر لیں</div>
+        <div class="mab-chips">${[100, 150, 200, 250, 300, 500]
+          .map(
+            (v) =>
+              `<button type="button" class="mab-chip" data-v="${v}">${v}</button>`
+          )
+          .join("")}</div>
+        <div id="mab-chk-hint" dir="rtl" style="margin-top:8px;border:1.5px dashed transparent;border-radius:10px;padding:4px 8px;"><div id="mab-chk-txt" style="display:none;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:700;color:#5a3d00;line-height:1.5;"><span>ریکارڈ چیک کر کے تسلی کریں، پھر نیچے <b style="color:#2f6b1f;">Process</b> دبائیں</span><svg class="mab-arrow" width="18" height="24" viewBox="0 0 24 28" fill="none" stroke="#2f6b1f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 2v20"/><path d="M4 15l8 9 8-9"/></svg></div>
+          <div class="mab-dlg-actions" dir="rtl" style="margin-top:5px;gap:6px;">
+            <button id="mab-main-cancel" class="mab-btn mab-btn-cancel" style="padding:5px 0;font-size:12px;
