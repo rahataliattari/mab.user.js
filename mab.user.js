@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name Ur Eng - v10.50
+// @name Ur Eng - Auto Print & Return to Box Open v10.50
 // @namespace mab.dibaadm.v10
 // @version 10.50
 // @match *://*.dibaadm.com/*
