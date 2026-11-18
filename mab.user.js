@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name Ur Eng - Auto Print & Return to Box Open v10.57
+// @name Ur Eng - Auto Print & Return to Box Open v10.58
 // @namespace mab.dibaadm.v10
-// @version 10.57
+// @version 10.58
 // @match *://*.dibaadm.com/*
 // @updateURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
 // @downloadURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
@@ -15,7 +15,7 @@
   // ایڈمن ڈیش بورڈ سے سب کو یا کسی ایک کو بند/چالو کر سکتا ہے، اور نیا آنے والا فہرست میں خود آ جاتا ہے۔
   // BACKEND_URL خالی ہو تو کوئی چیک نہیں ہوتا۔ بیک اینڈ نہ ملے تو (پہلے سے منظور شدہ کے لیے) اسکرپٹ چلتا رہتا ہے۔
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzAhpwLLez32m32h2n7M55LyCVwGHUu_WI8bx79LOh_i69p5PeokAGvvgzBTgGRKOpg/exec";
-  const SCRIPT_VER = "10.57";
+  const SCRIPT_VER = "10.58";
   const LS = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -202,7 +202,7 @@
     "donation purpose": ["Donation Purpose", "عطیات کی مد"],
     amount: ["Amount", "رقم"],
     "shop name": ["Shop Name", "دکان کا نام"],
-    "shop owner name": ["Shop Owner Name", "دکاندار کا نام"],
+    "shop owner name": ["Shop Owner Name", "دکاندار کا نام", "دکاندارکا نام", "دکاندار"], // اردو صفحے پر "دکاندارکا نام" بغیر وقفے کے لکھا ہے
     "mobile number": ["Mobile Number", "موبائل نمبر"],
     "shop address": ["Shop Address", "دکان کا پتہ"],
     "near by": ["Near By", "قریبی جگہ"],
@@ -2621,7 +2621,7 @@
         const rl = document.createElement("button");
         rl.type = "button";
         rl.title = "صفحہ ریفریش کریں";
-        rl.textContent = "🔄 v10.57";
+        rl.textContent = "🔄 v10.58";
         rl.style.cssText =
           "flex:0 0 auto;border:0;border-radius:10px;height:34px;padding:0 9px;background:rgba(255,255,255,.2);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);font-family:inherit;";
         rl.addEventListener("click", (e) => {
@@ -3257,7 +3257,7 @@
         if (v && v !== "—") return v;
         // آخری حربہ: کوئی بھی لیبل جس میں owner لکھا ہو، اس کا خانہ
         for (const l of document.querySelectorAll("label")) {
-          if (!/owner/i.test(l.textContent)) continue;
+          if (!/owner|دکاندار/i.test(l.textContent)) continue;
           const inp =
             l.control ||
             (l.htmlFor && document.getElementById(l.htmlFor)) ||
