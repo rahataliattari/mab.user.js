@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name Ur Eng - Auto Print & Return to Box Open v10.56
+// @name Ur Eng - Auto Print & Return to Box Open v10.57
 // @namespace mab.dibaadm.v10
-// @version 10.56
+// @version 10.57
 // @match *://*.dibaadm.com/*
 // @updateURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
 // @downloadURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
@@ -15,7 +15,7 @@
   // ایڈمن ڈیش بورڈ سے سب کو یا کسی ایک کو بند/چالو کر سکتا ہے، اور نیا آنے والا فہرست میں خود آ جاتا ہے۔
   // BACKEND_URL خالی ہو تو کوئی چیک نہیں ہوتا۔ بیک اینڈ نہ ملے تو (پہلے سے منظور شدہ کے لیے) اسکرپٹ چلتا رہتا ہے۔
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzAhpwLLez32m32h2n7M55LyCVwGHUu_WI8bx79LOh_i69p5PeokAGvvgzBTgGRKOpg/exec";
-  const SCRIPT_VER = "10.56";
+  const SCRIPT_VER = "10.57";
   const LS = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -2608,8 +2608,8 @@
               `<button type="button" class="mab-chip" data-v="${v}">${v}</button>`
           )
           .join("")}</div>
-        <div id="mab-chk-hint" dir="rtl" style="margin-top:8px;border:1.5px dashed transparent;border-radius:10px;padding:4px 8px;"><div id="mab-chk-txt" style="display:none;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:700;color:#5a3d00;line-height:1.5;"><span>ریکارڈ چیک کر کے تسلی کریں، پھر نیچے <b style="color:#2f6b1f;">Process</b> دبائیں</span><svg class="mab-arrow" width="18" height="24" viewBox="0 0 24 28" fill="none" stroke="#2f6b1f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 2v20"/><path d="M4 15l8 9 8-9"/></svg></div>
-          <div class="mab-dlg-actions" dir="rtl" style="margin-top:5px;gap:6px;">
+        <div id="mab-chk-hint" dir="rtl" style="margin-top:6px;border:1.5px dashed transparent;border-radius:10px;padding:3px 8px;"><div id="mab-chk-txt" style="display:none;align-items:center;justify-content:center;gap:6px;white-space:nowrap;overflow:hidden;font-size:clamp(10.5px,3.3vw,13px);font-weight:700;color:#5a3d00;line-height:1.4;"><span>ریکارڈ چیک کر کے تسلی کریں، پھر نیچے <b style="color:#2f6b1f;">Process</b> دبائیں</span><svg class="mab-arrow" width="12" height="16" viewBox="0 0 24 28" fill="none" stroke="#2f6b1f" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;"><path d="M12 2v20"/><path d="M4 15l8 9 8-9"/></svg></div>
+          <div class="mab-dlg-actions" dir="rtl" style="margin-top:3px;gap:6px;">
             <button id="mab-main-cancel" class="mab-btn mab-btn-cancel" style="padding:5px 0;font-size:12px;border-radius:8px;">منسوخ</button>
             <button id="mab-main-ok" class="mab-btn mab-btn-ok" style="padding:5px 0;font-size:12.5px;border-radius:8px;" disabled>${OK_LABEL}</button>
           </div></div></div>
@@ -2621,7 +2621,7 @@
         const rl = document.createElement("button");
         rl.type = "button";
         rl.title = "صفحہ ریفریش کریں";
-        rl.textContent = "🔄 v10.50";
+        rl.textContent = "🔄 v10.57";
         rl.style.cssText =
           "flex:0 0 auto;border:0;border-radius:10px;height:34px;padding:0 9px;background:rgba(255,255,255,.2);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);font-family:inherit;";
         rl.addEventListener("click", (e) => {
@@ -3252,9 +3252,34 @@
           .forEach(logOptions);
         return { error: "Missing: " + miss.join(", ") };
       }
+      const readOwner = () => {
+        let v = readFromCollectionForm(["Shop Owner Name", "Shop Owner", "Owner Name", "Owner", "Shopkeeper"]);
+        if (v && v !== "—") return v;
+        // آخری حربہ: کوئی بھی لیبل جس میں owner لکھا ہو، اس کا خانہ
+        for (const l of document.querySelectorAll("label")) {
+          if (!/owner/i.test(l.textContent)) continue;
+          const inp =
+            l.control ||
+            (l.htmlFor && document.getElementById(l.htmlFor)) ||
+            (l.parentElement && l.parentElement.querySelector("input,select,textarea"));
+          if (!inp) continue;
+          const t =
+            inp.tagName === "SELECT" && inp.selectedIndex >= 0
+              ? inp.options[inp.selectedIndex].text
+              : inp.value;
+          if (t && t.trim() && !/select/i.test(t)) return t.trim();
+        }
+        return "";
+      };
+      let ownerVal = readOwner();
+      // فارم بھرنے میں لمحہ لگ سکتا ہے: خالی ہو تو تھوڑا رک کر دوبارہ پڑھیں
+      for (let k = 0; k < 10 && !ownerVal; k++) {
+        await sleep(100);
+        ownerVal = readOwner();
+      }
       return {
         shop: readFromCollectionForm(["Shop Name", "Shop", "Store Name", "Dukan"]),
-        owner: readFromCollectionForm(["Shop Owner Name", "Shop Owner", "Owner Name", "Owner", "Shopkeeper"]),
+        owner: ownerVal,
         mobile: readFromCollectionForm(["Mobile Number", "Mobile No", "Mobile #", "Mobile", "Cell No", "Phone"]),
         donation: "Donation Box Nafila, Sadqah, All Purpose",
         address: [
