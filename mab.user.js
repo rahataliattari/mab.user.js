@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name Ur Eng - Auto Print & Return to Box Open v10.51
+// @name Ur Eng - Auto Print & Return to Box Open v10.55
 // @namespace mab.dibaadm.v10
-// @version 10.51
+// @version 10.55
 // @match *://*.dibaadm.com/*
 // @updateURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
 // @downloadURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
@@ -10,16 +10,60 @@
 // ==/UserScript==
 
 (function () {
-  // ===== ریموٹ سوئچ (GitHub کی status.json سے) =====
-  // status.json میں {"enabled": false} کرنے پر یہ اسکرپٹ سب کے لیے بند ہو جاتا ہے۔
-  // انٹرنیٹ/GitHub نہ ملے تو اسکرپٹ چلتا رہتا ہے (fail-open)۔
-  const STATUS_URL = "https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/status.json";
+  // ===== ریموٹ کنٹرول (Google Apps Script بیک اینڈ) =====
+  // صارف کی پہچان: سائٹ کی اوپر والی پٹی میں بریکٹ کے اندر کا کوڈ، مثلاً "... E-Slip Sharing ( 34253 )"۔
+  // ایڈمن ڈیش بورڈ سے سب کو یا کسی ایک کو بند/چالو کر سکتا ہے، اور نیا آنے والا فہرست میں خود آ جاتا ہے۔
+  // BACKEND_URL خالی ہو تو کوئی چیک نہیں ہوتا۔ بیک اینڈ نہ ملے تو (پہلے سے منظور شدہ کے لیے) اسکرپٹ چلتا رہتا ہے۔
+  const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzAhpwLLez32m32h2n7M55LyCVwGHUu_WI8bx79LOh_i69p5PeokAGvvgzBTgGRKOpg/exec";
+  const SCRIPT_VER = "10.55";
+  const LS = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  };
+  let uid = "", role = "";
+  // سائٹ کی پٹی سے کوڈ اور کردار پڑھیں (سب سے چھوٹا مطابقت والا عنصر)
+  const findSiteId = () => {
+    try {
+      let best = null;
+      const els = document.querySelectorAll("a,span,div,li,button,p,label,h1,h2,h3,h4,h5,h6");
+      for (let i = 0; i < els.length; i++) {
+        const e = els[i];
+        if (e.children.length > 3) continue;
+        const t = (e.textContent || "").replace(/\s+/g, " ").trim();
+        if (t.length < 8 || t.length > 220) continue;
+        const m = t.match(/^(.{5,}?)\(\s*(\d{3,8})\s*\)$/);
+        if (!m || !/[A-Za-z]/.test(m[1])) continue;
+        const r = e.getBoundingClientRect();
+        if (r.height <= 0 || r.top + (window.scrollY || 0) > 400) continue;
+        if (!best || t.length < best.len) best = { id: m[2], role: m[1].trim(), len: t.length };
+      }
+      return best;
+    } catch (e) {
+      return null;
+    }
+  };
+  const showChip = () => {
+    try {
+      if (!uid) return;
+      let c = document.getElementById("mab-uid-chip");
+      if (!c) {
+        c = document.createElement("div");
+        c.id = "mab-uid-chip";
+        c.style.cssText =
+          "position:fixed;left:6px;bottom:6px;z-index:2147483000;background:rgba(0,0,0,.45);color:#fff;font:600 10px/1 monospace;padding:4px 6px;border-radius:6px;opacity:.6;";
+        (document.body || document.documentElement).appendChild(c);
+      }
+      c.textContent = "ID: " + uid;
+    } catch (e) {}
+  };
   const showOff = (msg) => {
     try {
+      if (document.getElementById("mab-off-bar")) return;
       const d = document.createElement("div");
-      d.textContent = msg || "یہ اسکرپٹ فی الحال بند کر دیا گیا ہے۔";
+      d.id = "mab-off-bar";
+      d.textContent = (msg || "یہ اسکرپٹ فی الحال بند کر دیا گیا ہے۔") + (uid ? "  (ID: " + uid + ")" : "");
       d.style.cssText =
-        "position:fixed;left:8px;right:8px;bottom:8px;z-index:2147483647;background:#7a1f1f;color:#fff;padding:10px 14px;border-radius:10px;font:600 15px/1.5 sans-serif;text-align:center;direction:rtl;";
+        "position:fixed;left:8px;right:8px;bottom:30px;z-index:2147483647;background:#7a1f1f;color:#fff;padding:10px 14px;border-radius:10px;font:600 15px/1.5 sans-serif;text-align:center;direction:rtl;";
       (document.body || document.documentElement).appendChild(d);
     } catch (e) {}
   };
@@ -29,19 +73,81 @@
     started = true;
     __mabMain();
   };
-  try {
+  const askBackend = () => {
     const ctl = new AbortController();
-    const to = setTimeout(() => ctl.abort(), 4000);
-    fetch(STATUS_URL + "?t=" + Date.now(), { cache: "no-store", signal: ctl.signal })
+    const to = setTimeout(() => ctl.abort(), 8000);
+    const url =
+      BACKEND_URL +
+      (BACKEND_URL.indexOf("?") < 0 ? "?" : "&") +
+      "action=check&id=" + encodeURIComponent(uid) +
+      "&v=" + SCRIPT_VER +
+      "&ua=" + encodeURIComponent(((role ? role + " | " : "") + (navigator.userAgent || "")).slice(0, 140));
+    return fetch(url, { cache: "no-store", signal: ctl.signal })
       .then((r) => r.json())
-      .then((st) => {
+      .then((j) => {
         clearTimeout(to);
-        if (st && st.enabled === false) showOff(st.message);
-        else go();
-      })
-      .catch(() => go());
-  } catch (e) {
+        return j;
+      });
+  };
+  // کوڈ ملنے تک زیادہ سے زیادہ 4 سیکنڈ انتظار
+  const waitForId = (cb) => {
+    let n = 0;
+    const t = () => {
+      const f = findSiteId();
+      if (f) {
+        uid = f.id;
+        role = f.role;
+        showChip();
+        return cb(true);
+      }
+      if (++n >= 16) return cb(false);
+      setTimeout(t, 250);
+    };
+    t();
+  };
+  const remember = (j) => {
+    LS.set("mab_st_id", uid);
+    LS.set("mab_st", j && j.run === false ? (j.status === "pending" ? "pending" : "blocked") : "approved");
+  };
+  if (!BACKEND_URL) {
     go();
+  } else {
+    const cachedId = LS.get("mab_st_id");
+    const cached = LS.get("mab_st"); // آخری معلوم حالت اسی ID کے لیے: approved / blocked / pending
+    if (cached === "approved") {
+      // منظور شدہ صارف: فوراً چلائیں، پس منظر میں تصدیق کریں
+      go();
+      waitForId((found) => {
+        if (!found) return;
+        askBackend()
+          .then((j) => {
+            remember(j);
+            if (j && j.run === false) location.reload();
+          })
+          .catch(() => {});
+      });
+    } else {
+      waitForId((found) => {
+        if (!found) {
+          // سائٹ پر کوڈ نظر نہیں آیا (مثلاً لاگ اِن یا پرنٹ صفحہ): آخری معلوم حالت دیکھیں
+          if (cached === "blocked" || cached === "pending") {
+            uid = cachedId || "";
+            showOff();
+          } else go();
+          return;
+        }
+        askBackend()
+          .then((j) => {
+            remember(j);
+            if (j && j.run === false) showOff(j.message);
+            else go();
+          })
+          .catch(() => {
+            if ((cached === "blocked" || cached === "pending") && cachedId === uid) showOff();
+            else go();
+          });
+      });
+    }
   }
   function __mabMain() {
   // =============================================================

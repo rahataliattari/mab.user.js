@@ -6,28 +6,41 @@
 <meta name="robots" content="noindex,nofollow">
 <title>MAB کنٹرول ڈیش بورڈ</title>
 <style>
-  :root { --g:#1b5e20; --r:#b3261e; --bg:#f1f5ef; --ink:#1d2b1a; --mut:#5b6b57; }
+  :root { --g:#1b5e20; --r:#b3261e; --o:#b26a00; --bg:#f1f5ef; --ink:#1d2b1a; --mut:#5b6b57; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:Tahoma, sans-serif; background:var(--bg); color:var(--ink); padding:16px; }
-  .wrap { max-width:460px; margin:0 auto; }
-  h1 { font-size:20px; margin:4px 0 14px; color:var(--g); }
-  .card { background:#fff; border-radius:16px; padding:18px; margin-bottom:14px; box-shadow:0 1px 6px rgba(0,0,0,.08); }
-  .status { text-align:center; padding:22px 10px; border-radius:16px; font-size:26px; font-weight:800; color:#fff; background:#888; }
-  .status.on { background:var(--g); }
-  .status.off { background:var(--r); }
-  .status small { display:block; font-size:13px; font-weight:600; opacity:.9; margin-top:6px; }
-  .row { display:flex; gap:10px; margin-top:14px; }
-  button { flex:1; font:inherit; font-size:18px; font-weight:800; padding:16px 8px; border:0; border-radius:14px; color:#fff; cursor:pointer; }
-  button:disabled { opacity:.45; }
+  body { margin:0; font-family:Tahoma, sans-serif; background:var(--bg); color:var(--ink); padding:14px; }
+  .wrap { max-width:520px; margin:0 auto; }
+  h1 { font-size:20px; margin:4px 0 12px; color:var(--g); }
+  h2 { font-size:16px; margin:0 0 10px; }
+  .card { background:#fff; border-radius:16px; padding:16px; margin-bottom:14px; box-shadow:0 1px 6px rgba(0,0,0,.08); }
+  .status { text-align:center; padding:18px 10px; border-radius:14px; font-size:24px; font-weight:800; color:#fff; background:#888; }
+  .status.on { background:var(--g); } .status.off { background:var(--r); }
+  .status small { display:block; font-size:13px; font-weight:600; opacity:.9; margin-top:5px; }
+  .row { display:flex; gap:8px; margin-top:12px; }
+  button { font:inherit; font-size:15px; font-weight:800; padding:12px 10px; border:0; border-radius:12px; color:#fff; cursor:pointer; }
+  button:disabled { opacity:.4; }
+  .row > button { flex:1; }
   .b-on { background:var(--g); } .b-off { background:var(--r); }
-  .b-sec { background:#e6ece3; color:var(--ink); font-size:14px; padding:11px 8px; }
+  .b-sec { background:#e6ece3; color:var(--ink); font-size:14px; padding:10px 9px; }
   label { display:block; font-size:13px; color:var(--mut); margin:12px 0 6px; }
   input, textarea { width:100%; font:inherit; font-size:15px; padding:11px; border:1.5px solid #c9d5c5; border-radius:10px; background:#fafcf9; }
-  textarea { min-height:70px; resize:vertical; }
-  .msg { margin-top:12px; font-size:14px; min-height:20px; }
+  textarea { min-height:60px; resize:vertical; }
+  .msg { margin-top:10px; font-size:14px; min-height:18px; }
   .ok { color:var(--g); } .err { color:var(--r); }
-  details summary { cursor:pointer; color:var(--mut); font-size:14px; }
-  ol { padding-inline-start:20px; font-size:13px; line-height:1.9; color:var(--mut); }
+  .sw { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; margin-top:12px; background:#f6f9f4; border-radius:12px; font-size:14px; }
+  .sw b { display:block; font-size:15px; }
+  .sw small { color:var(--mut); }
+  .u { padding:11px 0; border-bottom:1px solid #eef3ec; }
+  .top { display:flex; align-items:center; gap:6px; }
+  .nm { flex:1; min-width:0; word-break:break-word; }
+  .nm b { font-size:15px; }
+  .meta { font-size:12px; color:var(--mut); font-family:monospace; margin-top:2px; direction:ltr; text-align:right; }
+  .meta2 { font-size:11.5px; color:var(--mut); margin-top:3px; }
+  .tag { display:inline-block; font-size:11px; padding:2px 7px; border-radius:20px; color:#fff; margin-inline-start:6px; vertical-align:middle; }
+  .t-pending { background:#b26a00; } .t-blocked { background:var(--r); } .t-approved { background:var(--g); }
+  .pend { background:#fff8e8; border:1.5px solid #f1d28a; border-radius:12px; padding:10px; margin-bottom:10px; }
+  .ni { margin-top:8px; padding:9px; font-size:14px; }
+  .empty { font-size:13px; color:var(--mut); padding:6px 0; }
 </style>
 </head>
 <body>
@@ -35,105 +48,169 @@
   <h1>⚡ MAB اسکرپٹ — کنٹرول ڈیش بورڈ</h1>
 
   <div class="card" id="loginCard">
-    <label for="tok">GitHub ٹوکن (ایک بار ڈالیں، اسی فون میں محفوظ رہے گا)</label>
-    <input id="tok" type="password" autocomplete="off" placeholder="github_pat_...">
-    <div class="row"><button class="b-sec" id="saveTok">محفوظ کریں اور لوڈ کریں</button></div>
-    <details style="margin-top:12px">
-      <summary>ٹوکن کیسے بنائیں؟</summary>
-      <ol>
-        <li>GitHub → اپنی تصویر → Settings</li>
-        <li>Developer settings → Personal access tokens → Fine-grained tokens → Generate new token</li>
-        <li>Repository access میں "Only select repositories" اور صرف <b>mab.user.js</b> چنیں</li>
-        <li>Permissions → Repository permissions → <b>Contents: Read and write</b></li>
-        <li>Generate دبا کر ٹوکن یہاں ڈال دیں</li>
-      </ol>
-    </details>
+    <h2>پہلی بار لاگ اِن</h2>
+    <label for="url">بیک اینڈ کا لنک (Apps Script Web app URL)</label>
+    <input id="url" placeholder="https://script.google.com/macros/s/.../exec" dir="ltr">
+    <label for="key">ایڈمن کوڈ (جو Code.gs میں ADMIN_KEY میں لکھا)</label>
+    <input id="key" type="password" autocomplete="off" dir="ltr">
+    <div class="row"><button class="b-on" id="login">لاگ اِن</button></div>
+    <div class="msg" id="lmsg"></div>
   </div>
 
-  <div class="card" id="panel" style="display:none">
-    <div class="status" id="st">…<small id="stSub"></small></div>
-    <label for="note">بند ہونے پر صارف کو دکھایا جانے والا پیغام</label>
-    <textarea id="note"></textarea>
-    <div class="row">
-      <button class="b-on" id="btnOn">🟢 آن کریں</button>
-      <button class="b-off" id="btnOff">🔴 بند کریں</button>
+  <div id="panel" style="display:none">
+    <div class="card">
+      <div class="status" id="st">…<small id="stSub"></small></div>
+      <div class="row">
+        <button class="b-on" id="btnOn">🟢 سب کے لیے آن</button>
+        <button class="b-off" id="btnOff">🔴 سب کے لیے بند</button>
+      </div>
+      <label for="note">سب کے لیے بند ہونے پر دکھایا جانے والا پیغام</label>
+      <textarea id="note"></textarea>
+      <div class="row"><button class="b-sec" id="saveNote">پیغام محفوظ کریں</button></div>
+
+      <div class="sw">
+        <div><b>نئے آنے والوں کی منظوری</b><small id="swSub"></small></div>
+        <button id="btnAppr" class="b-sec" style="flex:0 0 auto"></button>
+      </div>
+      <div class="msg" id="msg"></div>
     </div>
-    <div class="msg" id="msg"></div>
-    <div class="row"><button class="b-sec" id="reload">🔄 دوبارہ لوڈ</button><button class="b-sec" id="forget">ٹوکن ہٹائیں</button></div>
+
+    <div class="card">
+      <h2>⏳ منظوری کے منتظر <span id="pc"></span></h2>
+      <div id="pendList"></div>
+    </div>
+
+    <div class="card">
+      <h2>👥 تمام صارفین <span id="ac"></span></h2>
+      <div id="userList"></div>
+      <label>ہاتھ سے صارف شامل کریں</label>
+      <input id="uidIn" placeholder="یوزر کوڈ مثلاً 34253" autocapitalize="characters" style="text-transform:uppercase" dir="ltr">
+      <input id="uidName" placeholder="صارف کا نام" style="margin-top:8px">
+      <div class="row"><button class="b-on" id="usrAdd">➕ شامل کریں</button></div>
+    </div>
+
+    <div class="row" style="margin-bottom:24px"><button class="b-sec" id="reload">🔄 دوبارہ لوڈ</button><button class="b-sec" id="logout">لاگ آؤٹ</button></div>
   </div>
 </div>
 
 <script>
 (function () {
-  const OWNER = "rahataliattari", REPO = "mab.user.js", PATH = "status.json", BRANCH = "main";
-  const API = "https://api.github.com/repos/" + OWNER + "/" + REPO + "/contents/" + PATH;
   const $ = (id) => document.getElementById(id);
-  let sha = null, cur = { enabled: true, message: "" };
-
-  const store = {
-    get() { try { return localStorage.getItem("mab_admin_tok") || ""; } catch (e) { return ""; } },
-    set(v) { try { localStorage.setItem("mab_admin_tok", v); } catch (e) {} },
-    del() { try { localStorage.removeItem("mab_admin_tok"); } catch (e) {} },
+  let URL_ = "", KEY = "", cur = { enabled: true, message: "", requireApproval: false }, users = [];
+  const LS = {
+    get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
   };
   const say = (t, ok) => { const m = $("msg"); m.textContent = t || ""; m.className = "msg " + (ok ? "ok" : "err"); };
-  const hdr = () => ({ Authorization: "Bearer " + store.get(), Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" });
-  const b64e = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
-  const b64d = (b) => new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g, "")), (c) => c.charCodeAt(0)));
+  const fmt = (ms) => {
+    if (!ms) return "—";
+    const d = new Date(ms), mins = Math.round((Date.now() - ms) / 60000);
+    if (mins < 1) return "ابھی";
+    if (mins < 60) return mins + " منٹ پہلے";
+    if (mins < 1440) return Math.round(mins / 60) + " گھنٹے پہلے";
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  };
+
+  async function api(body) {
+    const r = await fetch(URL_, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ key: KEY }, body)) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error === "auth" ? "ایڈمن کوڈ غلط ہے" : "خرابی: " + (j.error || "نامعلوم"));
+    cur = j.config; users = j.users || [];
+    return j;
+  }
+
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function userRow(u, pending) {
+    const box = el("div", pending ? "pend" : "u");
+    const top = el("div", "top");
+    const nm = el("div", "nm");
+    const b = el("b", "", u.name || "(بغیر نام)");
+    b.appendChild(el("span", "tag t-" + u.status, u.status === "approved" ? "چالو" : u.status === "blocked" ? "بند" : "منتظر"));
+    nm.appendChild(b);
+    nm.appendChild(el("div", "meta", u.id));
+    top.appendChild(nm);
+    box.appendChild(top);
+    box.appendChild(el("div", "meta2", "آخری بار: " + fmt(u.last) + " · آمد: " + u.visits + " · ورژن " + (u.version || "—") + " · پہلی بار: " + fmt(u.first)));
+    if (u.device) box.appendChild(el("div", "meta2", u.device.replace(/Mozilla\/5\.0 \(/, "(").slice(0, 70)));
+
+    if (pending) {
+      const ni = el("input", "ni"); ni.placeholder = "نام لکھیں (یہ کون ہے؟)"; ni.value = u.name || "";
+      box.appendChild(ni);
+      const row = el("div", "row");
+      const ap = el("button", "b-on", "✔ منظور کریں"); ap.onclick = () => act({ action: "setUser", id: u.id, name: ni.value, status: "approved" }, "✔ منظور کر دیا۔");
+      const rj = el("button", "b-off", "✖ رد کریں"); rj.onclick = () => act({ action: "setUser", id: u.id, name: ni.value, status: "blocked" }, "✔ رد کر دیا۔");
+      row.appendChild(ap); row.appendChild(rj); box.appendChild(row);
+    } else {
+      const row = el("div", "row");
+      const tg = el("button", u.status === "blocked" ? "b-on" : "b-off", u.status === "blocked" ? "🟢 چالو کریں" : "🔴 بند کریں");
+      tg.onclick = () => act({ action: "setUser", id: u.id, status: u.status === "blocked" ? "approved" : "blocked" }, "✔ تبدیل ہو گیا۔");
+      const rn = el("button", "b-sec", "✎ نام"); rn.style.flex = "0 0 auto";
+      rn.onclick = () => { const n = prompt("صارف کا نام", u.name || ""); if (n !== null) act({ action: "setUser", id: u.id, name: n }, "✔ نام محفوظ ہو گیا۔"); };
+      const dl = el("button", "b-sec", "🗑"); dl.style.flex = "0 0 auto";
+      dl.onclick = () => { if (confirm("اس صارف کو فہرست سے ہٹائیں؟ (دوبارہ آنے پر نیا شمار ہوگا)")) act({ action: "deleteUser", id: u.id }, "✔ ہٹا دیا۔"); };
+      row.appendChild(tg); row.appendChild(rn); row.appendChild(dl); box.appendChild(row);
+    }
+    return box;
+  }
 
   function paint() {
     const st = $("st");
     st.className = "status " + (cur.enabled ? "on" : "off");
     st.firstChild.nodeValue = cur.enabled ? "🟢 اسکرپٹ آن ہے" : "🔴 اسکرپٹ بند ہے";
-    $("stSub").textContent = cur.enabled ? "سب صارفین کے لیے چل رہا ہے" : "سب صارفین کے لیے رکا ہوا ہے";
-    $("note").value = cur.message || "";
-    $("btnOn").disabled = cur.enabled;
-    $("btnOff").disabled = !cur.enabled;
+    $("stSub").textContent = cur.enabled ? "منظور شدہ صارفین کے لیے چل رہا ہے" : "سب صارفین کے لیے رکا ہوا ہے";
+    $("btnOn").disabled = cur.enabled; $("btnOff").disabled = !cur.enabled;
+    if (document.activeElement !== $("note")) $("note").value = cur.message || "";
+    $("swSub").textContent = cur.requireApproval ? "آن: نیا صارف منظوری تک بند رہے گا" : "بند: نیا صارف خود چل پڑے گا";
+    $("btnAppr").textContent = cur.requireApproval ? "بند کریں" : "آن کریں";
+
+    const pend = users.filter((u) => u.status === "pending").sort((a, b) => b.first - a.first);
+    const rest = users.filter((u) => u.status !== "pending").sort((a, b) => b.last - a.last);
+    $("pc").textContent = pend.length ? "(" + pend.length + ")" : "";
+    $("ac").textContent = rest.length ? "(" + rest.length + ")" : "";
+    const P = $("pendList"), A = $("userList");
+    P.innerHTML = ""; A.innerHTML = "";
+    if (!pend.length) P.appendChild(el("div", "empty", "کوئی نیا صارف منتظر نہیں۔"));
+    pend.forEach((u) => P.appendChild(userRow(u, true)));
+    if (!rest.length) A.appendChild(el("div", "empty", "ابھی کوئی صارف درج نہیں۔"));
+    rest.forEach((u) => A.appendChild(userRow(u, false)));
+  }
+
+  async function act(body, okText) {
+    say("محفوظ ہو رہا ہے…", true);
+    try { await api(body); paint(); say(okText || "✔", true); } catch (e) { say(e.message, false); }
   }
 
   async function load() {
-    if (!store.get()) { $("loginCard").style.display = ""; $("panel").style.display = "none"; return; }
     say("لوڈ ہو رہا ہے…", true);
-    try {
-      const r = await fetch(API + "?ref=" + BRANCH + "&t=" + Date.now(), { headers: hdr(), cache: "no-store" });
-      if (r.status === 401 || r.status === 403) throw new Error("ٹوکن درست نہیں یا اجازت نہیں");
-      if (r.status === 404) throw new Error("status.json ریپو میں نہیں ملی");
-      if (!r.ok) throw new Error("خرابی: " + r.status);
-      const j = await r.json();
-      sha = j.sha;
-      try { cur = JSON.parse(b64d(j.content)); } catch (e) { cur = { enabled: true, message: "" }; }
-      cur.enabled = cur.enabled !== false;
-      $("loginCard").style.display = "none";
-      $("panel").style.display = "";
-      paint(); say("", true);
-    } catch (e) {
-      $("loginCard").style.display = ""; $("panel").style.display = "";
-      say(e.message || "لوڈ نہیں ہو سکا", false);
-    }
+    try { await api({ action: "list" }); $("loginCard").style.display = "none"; $("panel").style.display = ""; paint(); say("", true); }
+    catch (e) { $("panel").style.display = "none"; $("loginCard").style.display = ""; $("lmsg").className = "msg err"; $("lmsg").textContent = e.message || "لوڈ نہیں ہو سکا"; }
   }
 
-  async function setEnabled(on) {
-    const body = { enabled: on, message: $("note").value.trim() || "یہ اسکرپٹ فی الحال بند کر دیا گیا ہے۔" };
-    $("btnOn").disabled = $("btnOff").disabled = true;
-    say("محفوظ ہو رہا ہے…", true);
-    try {
-      const r = await fetch(API, {
-        method: "PUT", headers: Object.assign({ "Content-Type": "application/json" }, hdr()),
-        body: JSON.stringify({ message: (on ? "Script ON" : "Script OFF") + " via dashboard", content: b64e(JSON.stringify(body, null, 2) + "\n"), sha: sha, branch: BRANCH }),
-      });
-      if (r.status === 409 || r.status === 422) throw new Error("فائل اس دوران بدل چکی ہے، دوبارہ لوڈ کریں");
-      if (!r.ok) throw new Error("محفوظ نہیں ہوا: " + r.status);
-      const j = await r.json();
-      sha = j.content.sha; cur = body; paint();
-      say(on ? "✔ آن کر دیا۔ صارفین کو 5 منٹ تک لگ سکتے ہیں۔" : "✔ بند کر دیا۔ صارفین کو 5 منٹ تک لگ سکتے ہیں۔", true);
-    } catch (e) { paint(); say(e.message, false); }
-  }
-
-  $("saveTok").onclick = () => { const v = $("tok").value.trim(); if (!v) return say("ٹوکن ڈالیں", false); store.set(v); $("tok").value = ""; load(); };
-  $("btnOn").onclick = () => setEnabled(true);
-  $("btnOff").onclick = () => setEnabled(false);
+  $("login").onclick = () => {
+    const u = $("url").value.trim(), k = $("key").value.trim();
+    if (!/^https:\/\/script\.google\.com\/.+\/exec/.test(u)) { $("lmsg").className = "msg err"; return ($("lmsg").textContent = "درست لنک ڈالیں (…/exec پر ختم ہو)"); }
+    if (!k) { $("lmsg").className = "msg err"; return ($("lmsg").textContent = "ایڈمن کوڈ ڈالیں"); }
+    LS.set("mab_url", u); LS.set("mab_key", k); URL_ = u; KEY = k; $("lmsg").textContent = ""; load();
+  };
+  $("btnOn").onclick = () => act({ action: "setConfig", enabled: true }, "✔ سب کے لیے آن کر دیا۔");
+  $("btnOff").onclick = () => act({ action: "setConfig", enabled: false, message: $("note").value.trim() }, "✔ سب کے لیے بند کر دیا۔");
+  $("saveNote").onclick = () => act({ action: "setConfig", message: $("note").value.trim() }, "✔ پیغام محفوظ ہو گیا۔");
+  $("btnAppr").onclick = () => act({ action: "setConfig", requireApproval: !cur.requireApproval }, cur.requireApproval ? "✔ منظوری بند۔ نئے لوگ خود چلیں گے۔" : "✔ منظوری آن۔ نئے لوگ منظوری تک بند رہیں گے۔");
+  $("usrAdd").onclick = () => {
+    const id = $("uidIn").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, ""), name = $("uidName").value.trim();
+    if (id.length < 4) return say("درست کوڈ ڈالیں", false);
+    if (!name) return say("صارف کا نام ڈالیں", false);
+    $("uidIn").value = ""; $("uidName").value = "";
+    act({ action: "setUser", id: id, name: name, status: "approved" }, "✔ " + name + " شامل ہو گیا۔");
+  };
   $("reload").onclick = load;
-  $("forget").onclick = () => { store.del(); sha = null; $("panel").style.display = "none"; $("loginCard").style.display = ""; say("", true); };
-  load();
+  $("logout").onclick = () => { LS.del("mab_key"); KEY = ""; $("panel").style.display = "none"; $("loginCard").style.display = ""; $("key").value = ""; };
+
+  URL_ = LS.get("mab_url"); KEY = LS.get("mab_key");
+  if (URL_) $("url").value = URL_;
+  if (URL_ && KEY) load();
 })();
 </script>
 </body>
