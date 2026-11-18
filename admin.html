@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>MAB کنٹرول ڈیش بورڈ</title>
+<style>
+  :root { --g:#1b5e20; --r:#b3261e; --bg:#f1f5ef; --ink:#1d2b1a; --mut:#5b6b57; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Tahoma, sans-serif; background:var(--bg); color:var(--ink); padding:16px; }
+  .wrap { max-width:460px; margin:0 auto; }
+  h1 { font-size:20px; margin:4px 0 14px; color:var(--g); }
+  .card { background:#fff; border-radius:16px; padding:18px; margin-bottom:14px; box-shadow:0 1px 6px rgba(0,0,0,.08); }
+  .status { text-align:center; padding:22px 10px; border-radius:16px; font-size:26px; font-weight:800; color:#fff; background:#888; }
+  .status.on { background:var(--g); }
+  .status.off { background:var(--r); }
+  .status small { display:block; font-size:13px; font-weight:600; opacity:.9; margin-top:6px; }
+  .row { display:flex; gap:10px; margin-top:14px; }
+  button { flex:1; font:inherit; font-size:18px; font-weight:800; padding:16px 8px; border:0; border-radius:14px; color:#fff; cursor:pointer; }
+  button:disabled { opacity:.45; }
+  .b-on { background:var(--g); } .b-off { background:var(--r); }
+  .b-sec { background:#e6ece3; color:var(--ink); font-size:14px; padding:11px 8px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:12px 0 6px; }
+  input, textarea { width:100%; font:inherit; font-size:15px; padding:11px; border:1.5px solid #c9d5c5; border-radius:10px; background:#fafcf9; }
+  textarea { min-height:70px; resize:vertical; }
+  .msg { margin-top:12px; font-size:14px; min-height:20px; }
+  .ok { color:var(--g); } .err { color:var(--r); }
+  details summary { cursor:pointer; color:var(--mut); font-size:14px; }
+  ol { padding-inline-start:20px; font-size:13px; line-height:1.9; color:var(--mut); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚡ MAB اسکرپٹ — کنٹرول ڈیش بورڈ</h1>
+
+  <div class="card" id="loginCard">
+    <label for="tok">GitHub ٹوکن (ایک بار ڈالیں، اسی فون میں محفوظ رہے گا)</label>
+    <input id="tok" type="password" autocomplete="off" placeholder="github_pat_...">
+    <div class="row"><button class="b-sec" id="saveTok">محفوظ کریں اور لوڈ کریں</button></div>
+    <details style="margin-top:12px">
+      <summary>ٹوکن کیسے بنائیں؟</summary>
+      <ol>
+        <li>GitHub → اپنی تصویر → Settings</li>
+        <li>Developer settings → Personal access tokens → Fine-grained tokens → Generate new token</li>
+        <li>Repository access میں "Only select repositories" اور صرف <b>mab.user.js</b> چنیں</li>
+        <li>Permissions → Repository permissions → <b>Contents: Read and write</b></li>
+        <li>Generate دبا کر ٹوکن یہاں ڈال دیں</li>
+      </ol>
+    </details>
+  </div>
+
+  <div class="card" id="panel" style="display:none">
+    <div class="status" id="st">…<small id="stSub"></small></div>
+    <label for="note">بند ہونے پر صارف کو دکھایا جانے والا پیغام</label>
+    <textarea id="note"></textarea>
+    <div class="row">
+      <button class="b-on" id="btnOn">🟢 آن کریں</button>
+      <button class="b-off" id="btnOff">🔴 بند کریں</button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div class="row"><button class="b-sec" id="reload">🔄 دوبارہ لوڈ</button><button class="b-sec" id="forget">ٹوکن ہٹائیں</button></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const OWNER = "rahataliattari", REPO = "mab.user.js", PATH = "status.json", BRANCH = "main";
+  const API = "https://api.github.com/repos/" + OWNER + "/" + REPO + "/contents/" + PATH;
+  const $ = (id) => document.getElementById(id);
+  let sha = null, cur = { enabled: true, message: "" };
+
+  const store = {
+    get() { try { return localStorage.getItem("mab_admin_tok") || ""; } catch (e) { return ""; } },
+    set(v) { try { localStorage.setItem("mab_admin_tok", v); } catch (e) {} },
+    del() { try { localStorage.removeItem("mab_admin_tok"); } catch (e) {} },
+  };
+  const say = (t, ok) => { const m = $("msg"); m.textContent = t || ""; m.className = "msg " + (ok ? "ok" : "err"); };
+  const hdr = () => ({ Authorization: "Bearer " + store.get(), Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" });
+  const b64e = (s) => btoa(String.fromCharCode(...new TextEncoder().encode(s)));
+  const b64d = (b) => new TextDecoder().decode(Uint8Array.from(atob(b.replace(/\s/g, "")), (c) => c.charCodeAt(0)));
+
+  function paint() {
+    const st = $("st");
+    st.className = "status " + (cur.enabled ? "on" : "off");
+    st.firstChild.nodeValue = cur.enabled ? "🟢 اسکرپٹ آن ہے" : "🔴 اسکرپٹ بند ہے";
+    $("stSub").textContent = cur.enabled ? "سب صارفین کے لیے چل رہا ہے" : "سب صارفین کے لیے رکا ہوا ہے";
+    $("note").value = cur.message || "";
+    $("btnOn").disabled = cur.enabled;
+    $("btnOff").disabled = !cur.enabled;
+  }
+
+  async function load() {
+    if (!store.get()) { $("loginCard").style.display = ""; $("panel").style.display = "none"; return; }
+    say("لوڈ ہو رہا ہے…", true);
+    try {
+      const r = await fetch(API + "?ref=" + BRANCH + "&t=" + Date.now(), { headers: hdr(), cache: "no-store" });
+      if (r.status === 401 || r.status === 403) throw new Error("ٹوکن درست نہیں یا اجازت نہیں");
+      if (r.status === 404) throw new Error("status.json ریپو میں نہیں ملی");
+      if (!r.ok) throw new Error("خرابی: " + r.status);
+      const j = await r.json();
+      sha = j.sha;
+      try { cur = JSON.parse(b64d(j.content)); } catch (e) { cur = { enabled: true, message: "" }; }
+      cur.enabled = cur.enabled !== false;
+      $("loginCard").style.display = "none";
+      $("panel").style.display = "";
+      paint(); say("", true);
+    } catch (e) {
+      $("loginCard").style.display = ""; $("panel").style.display = "";
+      say(e.message || "لوڈ نہیں ہو سکا", false);
+    }
+  }
+
+  async function setEnabled(on) {
+    const body = { enabled: on, message: $("note").value.trim() || "یہ اسکرپٹ فی الحال بند کر دیا گیا ہے۔" };
+    $("btnOn").disabled = $("btnOff").disabled = true;
+    say("محفوظ ہو رہا ہے…", true);
+    try {
+      const r = await fetch(API, {
+        method: "PUT", headers: Object.assign({ "Content-Type": "application/json" }, hdr()),
+        body: JSON.stringify({ message: (on ? "Script ON" : "Script OFF") + " via dashboard", content: b64e(JSON.stringify(body, null, 2) + "\n"), sha: sha, branch: BRANCH }),
+      });
+      if (r.status === 409 || r.status === 422) throw new Error("فائل اس دوران بدل چکی ہے، دوبارہ لوڈ کریں");
+      if (!r.ok) throw new Error("محفوظ نہیں ہوا: " + r.status);
+      const j = await r.json();
+      sha = j.content.sha; cur = body; paint();
+      say(on ? "✔ آن کر دیا۔ صارفین کو 5 منٹ تک لگ سکتے ہیں۔" : "✔ بند کر دیا۔ صارفین کو 5 منٹ تک لگ سکتے ہیں۔", true);
+    } catch (e) { paint(); say(e.message, false); }
+  }
+
+  $("saveTok").onclick = () => { const v = $("tok").value.trim(); if (!v) return say("ٹوکن ڈالیں", false); store.set(v); $("tok").value = ""; load(); };
+  $("btnOn").onclick = () => setEnabled(true);
+  $("btnOff").onclick = () => setEnabled(false);
+  $("reload").onclick = load;
+  $("forget").onclick = () => { store.del(); sha = null; $("panel").style.display = "none"; $("loginCard").style.display = ""; say("", true); };
+  load();
+})();
+</script>
+</body>
+</html>
