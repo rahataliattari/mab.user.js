@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name Ur Eng - Auto Print & Return to Box Open v10.58
+// @name Ur Eng - Auto Print & Return to Box Open v10.59
 // @namespace mab.dibaadm.v10
-// @version 10.58
+// @version 10.59
 // @match *://*.dibaadm.com/*
 // @updateURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
 // @downloadURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
@@ -15,7 +15,7 @@
   // ایڈمن ڈیش بورڈ سے سب کو یا کسی ایک کو بند/چالو کر سکتا ہے، اور نیا آنے والا فہرست میں خود آ جاتا ہے۔
   // BACKEND_URL خالی ہو تو کوئی چیک نہیں ہوتا۔ بیک اینڈ نہ ملے تو (پہلے سے منظور شدہ کے لیے) اسکرپٹ چلتا رہتا ہے۔
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzAhpwLLez32m32h2n7M55LyCVwGHUu_WI8bx79LOh_i69p5PeokAGvvgzBTgGRKOpg/exec";
-  const SCRIPT_VER = "10.58";
+  const SCRIPT_VER = "10.59";
   const LS = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -82,20 +82,36 @@
     started = true;
     __mabMain();
   };
+  // براؤزر کا مختصر ٹیگ: ڈیش بورڈ پر نظر آئے گا (UA کٹ جانے کی وجہ سے الگ بھیجتے ہیں)
+  const browserTag = () => {
+    const u = navigator.userAgent || "";
+    return /Firefox\//.test(u) ? "FF" : /EdgA?\//.test(u) ? "EDGE" : /SamsungBrowser/.test(u) ? "SAM" : /OPR\//.test(u) ? "OPR" : /Chrome\//.test(u) ? "CR" : /Safari\//.test(u) ? "SF" : "OTH";
+  };
+  const buildUrl = (tag) =>
+    BACKEND_URL +
+    (BACKEND_URL.indexOf("?") < 0 ? "?" : "&") +
+    "action=check&id=" + encodeURIComponent(uid) +
+    "&v=" + SCRIPT_VER +
+    "&ua=" + encodeURIComponent(("[" + browserTag() + (tag ? " " + tag : "") + "] " + (role ? role + " | " : "") + (navigator.userAgent || "")).slice(0, 140));
+  const errTxt = (e) => (String((e && e.name) || "err") + ":" + String((e && e.message) || "").slice(0, 30)).replace(/[\[\]]/g, "");
   const askBackend = () => {
     const ctl = new AbortController();
     const to = setTimeout(() => ctl.abort(), 8000);
-    const url =
-      BACKEND_URL +
-      (BACKEND_URL.indexOf("?") < 0 ? "?" : "&") +
-      "action=check&id=" + encodeURIComponent(uid) +
-      "&v=" + SCRIPT_VER +
-      "&ua=" + encodeURIComponent(((role ? role + " | " : "") + (navigator.userAgent || "")).slice(0, 140));
-    return fetch(url, { cache: "no-store", signal: ctl.signal })
+    const prevErr = LS.get("mab_err");
+    return fetch(buildUrl(prevErr ? "ERR " + prevErr : ""), { cache: "no-store", signal: ctl.signal })
       .then((r) => r.json())
       .then((j) => {
         clearTimeout(to);
+        LS.set("mab_err", "");
         return j;
+      })
+      .catch((e) => {
+        clearTimeout(to);
+        // جواب پڑھا نہ جا سکا (مثلاً Firefox/ایڈ بلاکر): وجہ یاد رکھیں اور بغیر جواب پڑھے ایک اطلاعی درخواست بھیجیں تاکہ ڈیش بورڈ میں نظر آئے
+        const t = errTxt(e);
+        LS.set("mab_err", t);
+        try { fetch(buildUrl("FAIL " + t), { mode: "no-cors", cache: "no-store" }).catch(() => {}); } catch (x) {}
+        throw e;
       });
   };
   // کوڈ ملنے تک زیادہ سے زیادہ 4 سیکنڈ انتظار
@@ -2621,7 +2637,7 @@
         const rl = document.createElement("button");
         rl.type = "button";
         rl.title = "صفحہ ریفریش کریں";
-        rl.textContent = "🔄 v10.58";
+        rl.textContent = "🔄 v10.59";
         rl.style.cssText =
           "flex:0 0 auto;border:0;border-radius:10px;height:34px;padding:0 9px;background:rgba(255,255,255,.2);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);font-family:inherit;";
         rl.addEventListener("click", (e) => {
