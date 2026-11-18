@@ -64,9 +64,15 @@
         <button class="b-on" id="btnOn">🟢 سب کے لیے آن</button>
         <button class="b-off" id="btnOff">🔴 سب کے لیے بند</button>
       </div>
-      <label for="note">سب کے لیے بند ہونے پر دکھایا جانے والا پیغام</label>
+      <h2 style="margin-top:18px">💬 پیغامات (صارف کو سرخ پٹی میں دکھائے جاتے ہیں)</h2>
+      <label for="note">سب کے لیے بند ہونے پر</label>
       <textarea id="note"></textarea>
-      <div class="row"><button class="b-sec" id="saveNote">پیغام محفوظ کریں</button></div>
+      <label for="noteBlocked">کسی ایک صارف کو بند کرنے پر</label>
+      <textarea id="noteBlocked"></textarea>
+      <label for="notePending">نیا صارف منظوری کے انتظار میں ہو تو</label>
+      <textarea id="notePending"></textarea>
+      <div class="row"><button class="b-on" id="saveNote">💾 تمام پیغامات محفوظ کریں</button></div>
+      <div class="msg" style="font-size:12px;color:var(--mut);margin-top:6px">کسی ایک صارف کے لیے الگ پیغام اس کی قطار میں "💬 پیغام" سے لکھیں۔ خالی چھوڑ کر محفوظ کریں تو ڈیفالٹ پیغام واپس آ جاتا ہے۔</div>
 
       <div class="sw">
         <div><b>نئے آنے والوں کی منظوری</b><small id="swSub"></small></div>
@@ -132,6 +138,7 @@
     nm.appendChild(el("div", "meta", u.id));
     top.appendChild(nm);
     box.appendChild(top);
+    if (u.message) box.appendChild(el("div", "meta2", "💬 خاص پیغام: " + u.message));
     box.appendChild(el("div", "meta2", "آخری بار: " + fmt(u.last) + " · آمد: " + u.visits + " · ورژن " + (u.version || "—") + " · پہلی بار: " + fmt(u.first)));
     if (u.device) box.appendChild(el("div", "meta2", u.device.replace(/Mozilla\/5\.0 \(/, "(").slice(0, 70)));
 
@@ -142,6 +149,10 @@
       const ap = el("button", "b-on", "✔ منظور کریں"); ap.onclick = () => act({ action: "setUser", id: u.id, name: ni.value, status: "approved" }, "✔ منظور کر دیا۔");
       const rj = el("button", "b-off", "✖ رد کریں"); rj.onclick = () => act({ action: "setUser", id: u.id, name: ni.value, status: "blocked" }, "✔ رد کر دیا۔");
       row.appendChild(ap); row.appendChild(rj); box.appendChild(row);
+      const row2 = el("div", "row");
+      const pm = el("button", "b-sec", "💬 اس کے لیے خاص پیغام");
+      pm.onclick = () => { const n = prompt("اس صارف کو دکھانے کا پیغام (خالی = ڈیفالٹ)", u.message || ""); if (n !== null) act({ action: "setUser", id: u.id, message: n }, "✔ پیغام محفوظ ہو گیا۔"); };
+      row2.appendChild(pm); box.appendChild(row2);
     } else {
       const row = el("div", "row");
       const tg = el("button", u.status === "blocked" ? "b-on" : "b-off", u.status === "blocked" ? "🟢 چالو کریں" : "🔴 بند کریں");
@@ -150,7 +161,10 @@
       rn.onclick = () => { const n = prompt("صارف کا نام", u.name || ""); if (n !== null) act({ action: "setUser", id: u.id, name: n }, "✔ نام محفوظ ہو گیا۔"); };
       const dl = el("button", "b-sec", "🗑"); dl.style.flex = "0 0 auto";
       dl.onclick = () => { if (confirm("اس صارف کو فہرست سے ہٹائیں؟ (دوبارہ آنے پر نیا شمار ہوگا)")) act({ action: "deleteUser", id: u.id }, "✔ ہٹا دیا۔"); };
-      row.appendChild(tg); row.appendChild(rn); row.appendChild(dl); box.appendChild(row);
+      const mg = el("button", "b-sec", "💬"); mg.style.flex = "0 0 auto";
+      mg.title = "اس صارف کے لیے خاص پیغام";
+      mg.onclick = () => { const n = prompt("اس صارف کو دکھانے کا پیغام (خالی = ڈیفالٹ)", u.message || ""); if (n !== null) act({ action: "setUser", id: u.id, message: n }, "✔ پیغام محفوظ ہو گیا۔"); };
+      row.appendChild(tg); row.appendChild(rn); row.appendChild(mg); row.appendChild(dl); box.appendChild(row);
     }
     return box;
   }
@@ -161,7 +175,9 @@
     st.firstChild.nodeValue = cur.enabled ? "🟢 اسکرپٹ آن ہے" : "🔴 اسکرپٹ بند ہے";
     $("stSub").textContent = cur.enabled ? "منظور شدہ صارفین کے لیے چل رہا ہے" : "سب صارفین کے لیے رکا ہوا ہے";
     $("btnOn").disabled = cur.enabled; $("btnOff").disabled = !cur.enabled;
-    if (document.activeElement !== $("note")) $("note").value = cur.message || "";
+    [["note", "message"], ["noteBlocked", "messageBlocked"], ["notePending", "messagePending"]].forEach((p) => {
+      if (document.activeElement !== $(p[0])) $(p[0]).value = cur[p[1]] || "";
+    });
     $("swSub").textContent = cur.requireApproval ? "آن: نیا صارف منظوری تک بند رہے گا" : "بند: نیا صارف خود چل پڑے گا";
     $("btnAppr").textContent = cur.requireApproval ? "بند کریں" : "آن کریں";
 
@@ -196,7 +212,7 @@
   };
   $("btnOn").onclick = () => act({ action: "setConfig", enabled: true }, "✔ سب کے لیے آن کر دیا۔");
   $("btnOff").onclick = () => act({ action: "setConfig", enabled: false, message: $("note").value.trim() }, "✔ سب کے لیے بند کر دیا۔");
-  $("saveNote").onclick = () => act({ action: "setConfig", message: $("note").value.trim() }, "✔ پیغام محفوظ ہو گیا۔");
+  $("saveNote").onclick = () => act({ action: "setConfig", message: $("note").value.trim(), messageBlocked: $("noteBlocked").value.trim(), messagePending: $("notePending").value.trim() }, "✔ تمام پیغامات محفوظ ہو گئے۔");
   $("btnAppr").onclick = () => act({ action: "setConfig", requireApproval: !cur.requireApproval }, cur.requireApproval ? "✔ منظوری بند۔ نئے لوگ خود چلیں گے۔" : "✔ منظوری آن۔ نئے لوگ منظوری تک بند رہیں گے۔");
   $("usrAdd").onclick = () => {
     const id = $("uidIn").value.trim().toUpperCase().replace(/[^A-Z0-9]/g, ""), name = $("uidName").value.trim();

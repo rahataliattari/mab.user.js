@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name Ur Eng - Auto Print & Return to Box Open v10.55
+// @name Ur Eng - Auto Print & Return to Box Open v10.56
 // @namespace mab.dibaadm.v10
-// @version 10.55
+// @version 10.56
 // @match *://*.dibaadm.com/*
 // @updateURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
 // @downloadURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
@@ -15,7 +15,7 @@
   // ایڈمن ڈیش بورڈ سے سب کو یا کسی ایک کو بند/چالو کر سکتا ہے، اور نیا آنے والا فہرست میں خود آ جاتا ہے۔
   // BACKEND_URL خالی ہو تو کوئی چیک نہیں ہوتا۔ بیک اینڈ نہ ملے تو (پہلے سے منظور شدہ کے لیے) اسکرپٹ چلتا رہتا ہے۔
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzAhpwLLez32m32h2n7M55LyCVwGHUu_WI8bx79LOh_i69p5PeokAGvvgzBTgGRKOpg/exec";
-  const SCRIPT_VER = "10.55";
+  const SCRIPT_VER = "10.56";
   const LS = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -61,7 +61,16 @@
       if (document.getElementById("mab-off-bar")) return;
       const d = document.createElement("div");
       d.id = "mab-off-bar";
-      d.textContent = (msg || "یہ اسکرپٹ فی الحال بند کر دیا گیا ہے۔") + (uid ? "  (ID: " + uid + ")" : "");
+      const m = document.createElement("div");
+      m.textContent = msg || "یہ اسکرپٹ فی الحال بند کر دیا گیا ہے۔";
+      d.appendChild(m);
+      if (uid) {
+        const i = document.createElement("div");
+        i.dir = "ltr";
+        i.style.cssText = "font:600 12px/1.4 monospace;opacity:.85;margin-top:4px;";
+        i.textContent = "ID: " + uid;
+        d.appendChild(i);
+      }
       d.style.cssText =
         "position:fixed;left:8px;right:8px;bottom:30px;z-index:2147483647;background:#7a1f1f;color:#fff;padding:10px 14px;border-radius:10px;font:600 15px/1.5 sans-serif;text-align:center;direction:rtl;";
       (document.body || document.documentElement).appendChild(d);
