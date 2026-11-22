@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name Ur Eng - Auto Print & Return to Box Open v10.59
+// @name Ur Eng - Auto Print & Return to Box Open v10.60
 // @namespace mab.dibaadm.v10
-// @version 10.59
+// @version 10.60
 // @match *://*.dibaadm.com/*
 // @updateURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
 // @downloadURL https://raw.githubusercontent.com/rahataliattari/mab.user.js/refs/heads/main/mab.user.js
@@ -15,7 +15,7 @@
   // ایڈمن ڈیش بورڈ سے سب کو یا کسی ایک کو بند/چالو کر سکتا ہے، اور نیا آنے والا فہرست میں خود آ جاتا ہے۔
   // BACKEND_URL خالی ہو تو کوئی چیک نہیں ہوتا۔ بیک اینڈ نہ ملے تو (پہلے سے منظور شدہ کے لیے) اسکرپٹ چلتا رہتا ہے۔
   const BACKEND_URL = "https://script.google.com/macros/s/AKfycbzAhpwLLez32m32h2n7M55LyCVwGHUu_WI8bx79LOh_i69p5PeokAGvvgzBTgGRKOpg/exec";
-  const SCRIPT_VER = "10.59";
+  const SCRIPT_VER = "10.60";
   const LS = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -2637,7 +2637,7 @@
         const rl = document.createElement("button");
         rl.type = "button";
         rl.title = "صفحہ ریفریش کریں";
-        rl.textContent = "🔄 v10.59";
+        rl.textContent = "🔄 v10.60";
         rl.style.cssText =
           "flex:0 0 auto;border:0;border-radius:10px;height:34px;padding:0 9px;background:rgba(255,255,255,.2);color:#fff;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25);font-family:inherit;";
         rl.addEventListener("click", (e) => {
@@ -3393,9 +3393,16 @@
       const st = document.createElement("style");
       st.id = "mab-dock-style";
       st.textContent =
-        "#mab-dock{position:fixed;right:0;bottom:85px;z-index:2147483647;display:flex;align-items:flex-end;direction:ltr;}" +
-        "#mab-dock-items{display:flex;flex-direction:column;align-items:center;gap:7px;padding:7px 5px;background:rgba(13,74,18,.92);border-radius:12px 0 0 12px;box-shadow:0 3px 10px rgba(0,0,0,.4);}" +
-        "#mab-dock-handle{touch-action:none;width:20px;height:52px;border:0;background:#2f6b1f;color:#fff;font-size:11px;border-radius:9px 0 0 9px;cursor:grab;box-shadow:0 3px 8px rgba(0,0,0,.4);padding:0;}" +
+        "#mab-dock{position:fixed;right:0;bottom:85px;z-index:2147483647;display:flex;align-items:center;direction:ltr;padding-right:env(safe-area-inset-right,0px);}" +
+        "#mab-dock-items{display:flex;flex-direction:column;align-items:stretch;gap:0;width:44px;padding:0;margin-right:3px;background:linear-gradient(180deg,#2e7d32 0%,#1b5e20 50%,#0b6b5e 100%);border-radius:24px;box-shadow:0 6px 18px rgba(0,0,0,.38),0 1px 3px rgba(0,0,0,.3);}" +
+        "#mab-dock #oc-fill-btn{width:100% !important;min-height:46px;height:auto !important;line-height:1.15 !important;padding:17px 2px !important;margin:0 !important;border:0 !important;border-radius:24px 24px 0 0 !important;background:transparent !important;color:#fff !important;font-size:10px !important;font-weight:800 !important;text-align:center;white-space:normal;overflow-wrap:anywhere;box-shadow:none !important;-webkit-tap-highlight-color:transparent;}" +
+        "#mab-dock #mab-calc-root{border-top:1px solid rgba(255,255,255,.28);}" +
+        "#mab-dock #mab-calc-toggle{display:block;width:100% !important;height:46px !important;margin:0 !important;border:0 !important;border-radius:0 0 24px 24px !important;background:transparent !important;font-size:20px !important;box-shadow:none !important;-webkit-tap-highlight-color:transparent;}" +
+        "#mab-dock #oc-fill-btn:active,#mab-dock #mab-calc-toggle:active{background:rgba(255,255,255,.2) !important;}" +
+        "#mab-dock #mab-calc-panel{-webkit-text-size-adjust:100%;text-size-adjust:100%;}" +
+        "#mab-dock-handle{touch-action:none;flex:0 0 auto;width:16px;height:38px;border:0;background:rgba(27,94,32,.85);color:#fff;font-size:9px;line-height:1;border-radius:9px 0 0 9px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);padding:0;-webkit-tap-highlight-color:transparent;}" +
+        "@media (min-width:700px){#mab-dock #mab-calc-panel:not([style*='100vw']){left:auto !important;right:80px;width:min(440px,60vw) !important;}}" +
+        "@media (max-height:560px){#mab-dock-items{width:40px;}#mab-dock #oc-fill-btn{min-height:40px;padding:14px 2px !important;font-size:9px !important;}#mab-dock #mab-calc-toggle{height:40px !important;font-size:18px !important;}#mab-dock-handle{height:32px;}}" +
         "body:has(#mab-dlg-overlay) #oc-fill-btn{display:none !important;}";
       document.head.appendChild(st);
     }
@@ -3982,7 +3989,7 @@
       '<div id="mab-calc-panel" style="display:none;position:fixed;left:2vw;width:96vw;bottom:155px;max-height:62vh;overflow-y:auto;flex-direction:column;box-sizing:border-box;background:#f6f9f4;border:2px solid #2f6b1f;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);">' +
       '<div data-grip="top" title="کھینچ کر سائز بدلیں" style="position:sticky;top:0;z-index:5;flex-shrink:0;height:22px;display:flex;align-items:center;justify-content:center;background:#2f6b1f;cursor:ns-resize;touch-action:none;"><span style="width:56px;height:5px;border-radius:3px;background:rgba(255,255,255,.85);"></span></div>' +
       '<div style="position:sticky;top:22px;z-index:3;background:linear-gradient(135deg,#0d4a12,#2f6b1f);color:#fff;padding:6px 10px;font-weight:800;font-size:15px;display:flex;justify-content:space-between;align-items:center;"><span>🧮 Calculator</span><span style="display:flex;gap:6px;align-items:center;"><button type="button" data-size="1" id="mab-calc-size" style="background:rgba(0,0,0,.25);border:0;color:#fff;height:26px;padding:0 9px;border-radius:7px;font-size:12px;font-weight:800;cursor:pointer;"></button><button type="button" data-k="hide" style="background:rgba(0,0,0,.25);border:0;color:#fff;width:26px;height:26px;border-radius:7px;font-size:14px;cursor:pointer;">✕</button></span></div>' +
-      '<div style="display:flex;gap:6px;padding:8px 8px 0;">' +
+      '<div id="mab-tab-bar" style="display:flex;gap:6px;padding:8px 8px 0;">' +
       '<button type="button" data-tab="calc" style="flex:1;height:38px;border:1.5px solid #2f6b1f;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;">🧮 Calculator</button>' +
       '<button type="button" data-tab="cash" style="flex:1;height:38px;border:1.5px solid #2f6b1f;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;">💵 Cash Counter</button>' +
       "</div>" +
@@ -4026,7 +4033,10 @@
     const setOpen = (o) => {
       panel.style.display = o ? "flex" : "none";
       lsSet(CALC_OPEN_KEY, o ? "1" : "0");
-      if (o) refresh();
+      if (o) {
+        refresh();
+        if (typeof fitPanel === "function") { fitSig = ""; fitPanel(); }
+      }
     };
     // 🧮 بٹن: ٹیپ سے کھلے/بند، کھینچنے سے کہیں بھی رکھیں (جگہ یاد رہتی ہے)
     const tg = root.querySelector("#mab-calc-toggle");
@@ -4321,6 +4331,45 @@
       if (lsGet(SZ_KEY, "normal") === "custom") applySize("custom");
     });
     applySize(lsGet(SZ_KEY, "normal"));
+    // ---- چھوٹی اسکرین پر پینل کا مواد خود چھوٹا ہو تاکہ سب ایلیمنٹس نظر آئیں ----
+    const FIT_OK = !!(window.CSS && CSS.supports && CSS.supports("zoom", "0.5"));
+    const fitEls = () =>
+      ["#mab-tab-bar", "#mab-tab-calc", "#mab-tab-cash"]
+        .map((q) => root.querySelector(q))
+        .filter(Boolean);
+    let fitSig = "";
+    const fitPanel = () => {
+      if (!FIT_OK || panel.style.display === "none") return;
+      const els = fitEls();
+      const setZ = (z) => els.forEach((e) => (e.style.zoom = z >= 1 ? "" : String(z)));
+      const tabNow = (lsGet(CC_TAB_KEY, "calc") || "calc");
+      const sig = [
+        panel.clientHeight,
+        panel.clientWidth,
+        tabNow,
+        window.innerHeight,
+        (root.querySelector("#mab-calc-use") || {}).style.display,
+        (root.querySelector("#mab-cc-use") || {}).style.display,
+      ].join("|");
+      const overflow = panel.scrollHeight > panel.clientHeight + 1;
+      if (sig === fitSig && !overflow) return;
+      // ٹائپنگ کے دوران (کی بورڈ کھلا ہو) سائز نہ چھیڑیں
+      const ae = document.activeElement;
+      if (ae && ae.matches && ae.matches("[data-cc-in]") && sig === fitSig) return;
+      fitSig = sig;
+      let z = 1;
+      setZ(z);
+      while (panel.scrollHeight > panel.clientHeight + 1 && z > 0.38) {
+        z = Math.round((z - 0.04) * 100) / 100;
+        setZ(z);
+      }
+    };
+    setInterval(fitPanel, 400);
+    window.addEventListener("resize", () => {
+      fitSig = "";
+      fitPanel();
+    });
+
     window.__mabCalcFront = () => {
       const dk = root.closest("#mab-dock") || root;
       if (dk.parentNode && document.body.lastElementChild !== dk)
